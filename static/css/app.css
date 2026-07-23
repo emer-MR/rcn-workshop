@@ -1,0 +1,4354 @@
+:root {
+    --bg: #f7f7f8;
+    --panel: #ffffff;
+    --border: #d1d5db;
+    --text: #111827;
+    --muted: #6b7280;
+    --primary: #1f4e79;
+    --primary-hover: #18405f;
+    --accent: #f4b183;
+    --danger: #c0392b;
+    --row-hover: #eef2ff;
+    --row-active: #dbeafe;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    height: 100%;
+}
+
+body { display: flex; flex-direction: column; }
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    background: var(--primary);
+    color: white;
+}
+.topbar .brand { color: white; font-weight: 600; text-decoration: none; }
+.topbar nav { display: flex; gap: 1rem; margin-left: auto; }
+.topbar nav a { color: white; text-decoration: none; opacity: 0.85; }
+.topbar nav a:hover { opacity: 1; }
+
+main { flex: 1; padding: 1rem; display: flex; flex-direction: column; min-height: 0; }
+
+h1, h2, h3 { margin: 0 0 0.5rem 0; }
+
+.muted { color: var(--muted); }
+.tiny { font-size: 0.75rem; }
+.center { text-align: center; }
+
+.stack { display: flex; flex-direction: column; gap: 1rem; }
+.row { display: flex; gap: 0.5rem; }
+.row-between { display: flex; justify-content: space-between; align-items: center; }
+.row-end { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+button, .ghost {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    background: white;
+    color: var(--text);
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.primary { background: var(--primary); color: white; border-color: var(--primary); }
+button.primary:hover:not(:disabled) { background: var(--primary-hover); }
+button.ghost { background: white; }
+button.ghost:hover:not(:disabled) { background: #f3f4f6; }
+button.danger-ghost { color: var(--danger); border-color: var(--danger); background: white; }
+button.danger-ghost:hover:not(:disabled) { background: #fdecea; }
+button.link { background: transparent; border: 0; color: var(--primary); text-decoration: underline; padding: 0; }
+button.small { padding: 0.15rem 0.4rem; font-size: 0.8rem; }
+a.ghost { text-decoration: none; color: var(--text); display: inline-block; padding: 0.4rem 0.8rem; border: 1px solid var(--border); border-radius: 4px; background: white; }
+
+input, select, textarea {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    background: white;
+    color: var(--text);
+    width: 100%;
+}
+label { display: block; font-size: 0.85rem; color: var(--muted); }
+label input, label select, label textarea { margin-top: 0.2rem; }
+
+table.list, table.data {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+table.list th, table.list td,
+table.data th, table.data td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+}
+table.list th, table.data th { background: #f3f4f6; font-weight: 600; cursor: pointer; }
+table.list.small { font-size: 0.8rem; }
+table.data tbody tr:hover { background: var(--row-hover); cursor: pointer; }
+table.data tbody tr.active { background: var(--row-active); }
+table.data tbody tr.ticked { background: #fff8e1; }
+table.data tbody tr.ticked.active { background: #ffe9a6; }
+
+table.data td.cell-error {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+@keyframes rcnPulse {
+    0%   { box-shadow: inset 0 0 0 2px var(--color-accent-500); background-color: #fef3c7; }
+    50%  { box-shadow: inset 0 0 0 2px var(--color-accent-500); background-color: #fde68a; }
+    100% { box-shadow: inset 0 0 0 0 transparent; background-color: var(--row-active); }
+}
+table.data tbody tr.pulse td { animation: rcnPulse 1.5s ease-out; }
+table.data .col-sel { width: 1.5rem; text-align: center; padding: 0.2rem 0.4rem; }
+table.data .col-sel input[type="checkbox"] { margin: 0; cursor: pointer; }
+table.data .col-expand {
+    width: 1.6rem;
+    text-align: center;
+    padding: 0.2rem 0.3rem;
+    cursor: pointer;
+    color: var(--muted);
+    user-select: none;
+}
+table.data tbody tr:hover .col-expand { color: var(--primary); }
+
+table.data tr.expanded-row > td {
+    background: #f8fafc;
+    padding: 0.6rem 0.9rem 0.9rem 2.4rem;
+    border-top: 0;
+    cursor: default;
+}
+table.data tr.expanded-row:hover > td { background: #f8fafc; }
+.details-wrap { display: flex; flex-direction: column; gap: 0.7rem; }
+.details-section h4 {
+    margin: 0 0 0.3rem 0;
+    font-size: 0.88rem;
+    color: var(--primary);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.details-section table.list { background: white; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.details-section table.list th {
+    background: var(--color-primary-50);
+    font-size: 0.78rem;
+    padding: 0.3rem 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    font-weight: 600;
+    cursor: default;
+}
+.details-section table.list td { padding: 0.3rem 0.5rem; font-size: 0.82rem; vertical-align: middle; }
+.details-section table.list td.num, .details-section table.list th.num { text-align: right; white-space: nowrap; }
+
+.sel-toolbar {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.sel-master {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+}
+.sel-master:hover { background: #f3f4f6; }
+.sel-master input[type="checkbox"] { margin: 0; cursor: pointer; }
+.sel-toggle {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--muted);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    cursor: pointer;
+}
+.sel-toggle.active {
+    color: var(--primary);
+    background: #fff3d6;
+    border-color: #f2d28f;
+    font-weight: 600;
+}
+.sel-toggle input[type="checkbox"] { margin: 0; }
+
+.toolbar-actions {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* PR1 redesign: usunięto .cols-dropdown / .cols-menu — kolumny toggle nigdy
+   nie były wpięte w UI (visibleColumns w Alpine też usunięte). */
+
+table.data .col-note { width: 2rem; text-align: center; padding: 0.2rem 0.4rem; cursor: pointer; }
+table.data .col-note .has-note { color: var(--primary); font-size: 1.05rem; }
+table.data .col-note .no-note  { color: #cbd5e1; font-weight: 700; opacity: 0.5; }
+table.data .col-note:hover .no-note { opacity: 1; color: var(--primary); }
+
+/* ================================================================
+ * Modal edytor notatki — PR7 redesign.
+ * Split view: textarea Markdown source (left) + preview HTML (right).
+ * Tokens design system, focus rings primary, mono monospace dla Markdownu.
+ * ================================================================ */
+.modal.note-modal {
+    width: min(1000px, 96vw);
+    max-height: 90vh;
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    background: white;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-sans);
+}
+.note-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--color-neutral-200);
+    flex: none;
+}
+.note-head h2 {
+    margin: 0;
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    letter-spacing: -0.01em;
+    color: var(--color-neutral-900);
+}
+.note-head code {
+    background: var(--color-neutral-100);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-neutral-700);
+}
+.note-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    min-height: 0;
+    overflow: hidden;
+    padding: var(--space-4) var(--space-6);
+}
+.note-body textarea {
+    resize: none;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    min-height: 300px;
+    background: white;
+    color: var(--color-neutral-900);
+    transition: all var(--duration-fast) var(--ease);
+}
+.note-body textarea:focus {
+    outline: none;
+    border-color: var(--color-primary-500);
+    box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+.note-preview {
+    background: var(--color-neutral-50);
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    overflow: auto;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-neutral-900);
+}
+.note-preview h1 {
+    font-size: var(--text-md);
+    margin: 0 0 var(--space-3);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-950);
+}
+.note-preview h2 {
+    font-size: var(--text-base);
+    margin: var(--space-4) 0 var(--space-2);
+    color: var(--color-primary-700);
+    font-weight: var(--weight-semibold);
+}
+.note-preview h3 {
+    font-size: var(--text-sm);
+    margin: var(--space-3) 0 var(--space-1);
+    font-weight: var(--weight-semibold);
+}
+.note-preview p { margin: 0 0 var(--space-2); }
+.note-preview p:last-child { margin-bottom: 0; }
+.note-preview ul,
+.note-preview ol {
+    padding-left: var(--space-5);
+    margin: 0 0 var(--space-2);
+}
+.note-preview code {
+    background: var(--color-neutral-200);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-primary-700);
+}
+.note-preview pre {
+    background: var(--color-neutral-100);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    overflow: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    margin: var(--space-2) 0;
+}
+.note-preview pre code { background: transparent; padding: 0; }
+.note-preview hr {
+    margin: var(--space-3) 0;
+    border: 0;
+    border-top: 1px dashed var(--color-neutral-300);
+}
+.note-preview strong {
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-950);
+}
+.note-preview a {
+    color: var(--color-primary-700);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+.note-preview blockquote {
+    border-left: 3px solid var(--color-primary-200);
+    padding-left: var(--space-3);
+    margin: var(--space-2) 0;
+    color: var(--color-neutral-700);
+    font-style: italic;
+}
+@media (max-width: 900px) {
+    .note-body { grid-template-columns: 1fr; }
+}
+
+/* Footer modala notatki -- akcje Save/Delete/Close */
+.note-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    border-top: 1px solid var(--color-neutral-200);
+    background: var(--color-neutral-50);
+    flex: none;
+}
+.note-foot .spacer { flex: 1; }
+
+.modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(28, 25, 23, 0.45);
+    display: flex; align-items: center; justify-content: center;
+    /* PR6 fix: z-index podniesiony z 1000 do 2000 (z-modal-backdrop)
+       żeby modal NAD drawerem (1100) i sidebarem (1200), nie pod nimi. */
+    z-index: var(--z-modal-backdrop);
+}
+.modal {
+    background: white; border-radius: 8px; padding: 1.5rem;
+    width: 420px; max-width: 92vw;
+    box-shadow: var(--shadow-lg);
+    display: flex; flex-direction: column; gap: 1rem;
+    /* PR6 fix: modal explicit z-index ponad backdropem */
+    z-index: var(--z-modal);
+    position: relative;
+}
+.modal.wide { width: 720px; max-height: 90vh; overflow-y: auto; }
+.modal .help-text { font-size: 0.8rem; color: var(--muted); background: #f8fafc; border-left: 3px solid var(--primary); padding: 0.55rem 0.7rem; margin: 0; border-radius: 0 4px 4px 0; }
+.modal .help-text code { background: #e0e7ff; color: #1e3a8a; padding: 1px 5px; border-radius: 3px; font-size: 0.82rem; }
+.import-counts { display: inline-flex; gap: 0.5rem; align-items: center; }
+.import-counts .cnt-ins  { color: #15803d; font-weight: 600; }
+.import-counts .cnt-upd  { color: #b45309; font-weight: 600; }
+.import-counts .cnt-skip { color: #64748b; font-size: 0.85em; }
+.import-counts .cnt-wth  { color: #b91c1c; font-weight: 600; }
+
+/* Wiersz tabeli dla transakcji wycofanej z portalu (status != 'aktywna'). */
+.wb-row-withdrawn td { color: #94a3b8; text-decoration: line-through; text-decoration-color: #cbd5e1; }
+.wb-row-withdrawn td:first-child::before { content: '🗑️ '; text-decoration: none; }
+
+/* Inline checkbox w slide-overze filtrów (np. "Pokaż wycofane") */
+.wb-inline-check { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; }
+.wb-inline-check input[type="checkbox"] { accent-color: var(--primary); width: 16px; height: 16px; }
+
+/* Create-workspace modal -- szerszy layout z sekcjami dla GML + GPKG. */
+.create-ws-modal { max-width: 640px; }
+.create-ws-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+.create-ws-section { border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem 1rem; }
+.create-ws-section legend { padding: 0 0.4rem; font-weight: 600; color: var(--primary); }
+.create-ws-section .required { color: var(--color-danger-500); }
+.create-ws-filelist { list-style: none; padding: 0; margin: 0.5rem 0 0; display: flex; flex-direction: column; gap: 3px; }
+.create-ws-filelist li {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 8px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.create-ws-filelist li button { margin-left: auto; }
+.btn-link { background: none; border: none; color: var(--color-danger-500); cursor: pointer; font-size: 1rem; padding: 0 4px; }
+.btn-link:hover { color: #7f1d1d; }
+.gpkg-entry {
+    display: flex; gap: 6px; align-items: center;
+    margin-bottom: 0.4rem;
+    padding: 0.4rem 0.5rem;
+    background: #f8fafc;
+    border-radius: 4px;
+}
+.gpkg-entry .gpkg-name { flex: 1; min-width: 140px; }
+.gpkg-entry input[type="file"] { flex: 1.4; }
+.create-ws-error {
+    margin: 0.5rem 0 0;
+    padding: 0.6rem 0.8rem;
+    background: var(--color-danger-50); color: #991b1b;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+}
+
+/* Moduł analityczny -- modal z 3 tabami. Szerszy niż koszyk, bo tabela stats
+   ma 10 kolumn i wykresy potrzebują miejsca. */
+.wb-analysis-modal {
+    width: min(92vw, 1100px);
+    max-height: 90vh;
+    display: flex; flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+.wb-analysis-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+}
+.wb-analysis-head h2 { margin: 0; font-size: 1.15rem; }
+.wb-analysis-tabs {
+    display: flex; gap: 2px;
+    padding: 0 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: #fff;
+}
+.wb-analysis-tabs button {
+    background: transparent; border: none;
+    padding: 0.6rem 1rem;
+    font-size: 0.92rem;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    color: var(--muted);
+    transition: all 0.12s ease;
+}
+.wb-analysis-tabs button:hover { color: var(--text); }
+.wb-analysis-tabs button.active {
+    color: var(--primary); font-weight: 600;
+    border-bottom-color: var(--primary);
+}
+.wb-analysis-body {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 1rem 1.25rem;
+}
+.wb-analysis-table { width: 100%; font-size: 0.86rem; }
+.wb-analysis-table td, .wb-analysis-table th { padding: 5px 8px; }
+.wb-analysis-table tr.wb-analysis-all { background: #f1f5f9; font-weight: 600; }
+.wb-analysis-table .wb-analysis-cv-warn { color: #b45309; font-weight: 600; }
+.wb-analysis-table .tiny { font-size: 0.78rem; }
+
+.wb-analysis-charts {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    margin-top: 0.5rem;
+}
+.wb-analysis-charts > div {
+    height: 360px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem;
+}
+@media (max-width: 900px) {
+    .wb-analysis-charts { grid-template-columns: 1fr; }
+}
+
+.wb-analysis-cuts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+.wb-analysis-cuts section h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+    color: var(--primary);
+}
+.wb-analysis-cuts table { width: 100%; font-size: 0.85rem; }
+.wb-analysis-cuts td, .wb-analysis-cuts th { padding: 4px 6px; }
+
+/* Wtyczki -- dropdown w stopce koszyka + generyczny renderer wyniku. */
+.wb-plugin-menu { position: relative; }
+.wb-plugin-dropdown {
+    position: absolute;
+    bottom: calc(100% + 6px); left: 0;
+    min-width: 240px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+    padding: 4px;
+    z-index: 60;
+}
+.wb-plugin-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    width: 100%;
+    background: transparent; border: none;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.88rem;
+    text-align: left;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text);
+    text-decoration: none;
+}
+.wb-plugin-item:hover { background: #f1f5f9; }
+.wb-plugin-item.muted { cursor: default; color: var(--muted); }
+.wb-plugin-item.muted:hover { background: transparent; }
+.wb-plugin-manage {
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 6px 6px;
+    color: var(--primary);
+    font-size: 0.82rem;
+}
+.wb-plugin-result .wb-plugin-table { width: 100%; font-size: 0.86rem; margin-bottom: 1rem; border-collapse: collapse; }
+.wb-plugin-result .wb-plugin-table td, .wb-plugin-result .wb-plugin-table th {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+}
+.wb-plugin-result .wb-plugin-table thead th { background: #f8fafc; }
+.wb-plugin-table-title { margin: 0.75rem 0 0.4rem; font-size: 0.95rem; color: var(--primary); }
+.wb-plugin-chart {
+    height: 320px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+}
+.wb-plugin-text {
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 0.86rem;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+}
+.wb-plugin-error {
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+}
+/* Formularz parametrów wtyczki (deklaracja PLUGIN['params']) + notka o przycięciu. */
+.wb-plugin-params {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem 1.25rem;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+.wb-plugin-param { display: flex; flex-direction: column; gap: 2px; max-width: 240px; }
+.wb-plugin-param-label { font-size: 0.8rem; color: var(--muted); }
+.wb-plugin-param input,
+.wb-plugin-param select {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.88rem;
+    background: #fff;
+}
+.wb-plugin-capped {
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+}
+
+/* Miarka -- pomiar odległości na mapie (przyciski pływające + etykieta linii). */
+.wb-measure-ctrl {
+    position: absolute;
+    top: 12px; left: 56px;   /* na prawo od zoomu Leaflet */
+    z-index: 800;
+    display: flex; align-items: center; gap: 6px;
+}
+.wb-measure-btn {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.84rem;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.15);
+}
+.wb-measure-btn:hover { background: #f1f5f9; }
+.wb-measure-btn.active { background: #9a3412; border-color: #9a3412; color: #fff; }
+.wb-measure-hint {
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    color: #9a3412;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+#map.wb-measuring { cursor: crosshair; }
+#map.wb-measuring .leaflet-interactive { cursor: crosshair; }
+.wb-measure-tip {
+    background: #9a3412;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.82rem;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.3);
+}
+.wb-measure-tip::before { display: none; }
+
+/* Readonly role badge w topbarze workspace'a — PR2 redesign. */
+.wb-role-badge {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-500);
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    font-family: var(--font-sans);
+    cursor: help;
+    border: 1px solid var(--color-neutral-200);
+}
+
+.upload-status { background: #f3f4f6; padding: 0.8rem; border-radius: 4px; white-space: pre-wrap; font-size: 0.85rem; max-height: 200px; overflow: auto; }
+
+.upload-progress { margin: 0.4rem 0; }
+.progress-bar {
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary) 0%, #4a84b8 100%);
+    transition: width 250ms ease;
+}
+.progress-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
+
+/* Banner aktywnego importu (workspace.html, pod topbarem).
+   Widoczny gdy ostatni rekord w imports[] ma status processing/queued.
+   Znika automatycznie po przejściu do success/failed. */
+.wb-import-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4, 1rem);
+    padding: 0.5rem var(--space-6, 1.5rem);
+    background: linear-gradient(90deg, #fef3c7 0%, #fef9e7 100%);
+    border-bottom: 1px solid #facc15;
+    font-size: 0.85rem;
+    color: #78350f;
+    flex-wrap: wrap;
+}
+.wb-import-banner-info {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.wb-import-banner-info strong { font-weight: 600; }
+.wb-import-banner-file {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 28ch;
+}
+.wb-import-banner-stage { font-size: 0.78rem; color: #92400e; }
+.wb-import-banner-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 1 280px;
+    min-width: 200px;
+}
+.wb-import-banner-progress .progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(120, 53, 15, 0.15);
+}
+.wb-import-banner-progress .progress-fill {
+    background: linear-gradient(90deg, #ca8a04 0%, #eab308 100%);
+}
+.wb-import-banner-pct {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    min-width: 3.5ch;
+    text-align: right;
+}
+.wb-import-banner-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(120, 53, 15, 0.25);
+    border-top-color: #ca8a04;
+    border-radius: 50%;
+    animation: wb-spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+@keyframes wb-spin { to { transform: rotate(360deg); } }
+
+.status-pill {
+    display: inline-block;
+    padding: 0.05rem 0.4rem;
+    border-radius: 8px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: white;
+    background: var(--muted);
+}
+.status-pill.status-processing { background: var(--color-accent-500); }
+.status-pill.status-success    { background: #16a34a; }
+.status-pill.status-failed     { background: var(--danger); }
+.status-pill.status-queued     { background: #64748b; }
+tr.import-row.status-processing td { background: #fef3c7; }
+tr.import-row.status-failed td     { background: #fecaca; }
+
+.workspace { display: flex; flex-direction: column; gap: 0.5rem; height: 100%; }
+.workspace-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
+/* PR1 redesign: usunięto .table-pane / .map-pane / .gutter — pozostałości
+   po classic 2-panel layoucie z split.js (split.js też usunięty z base.html).
+   PR4 redesign: usunięto regułę globalną "#map { width:100%; height:100% }"
+   bo nadpisywała "right: var(--sidebar-w)" z .wb-canvas > #map. Mapa
+   jest teraz pozycjonowana absolute przez .wb-canvas > #map. */
+
+/* ================================================================
+ * Tooltip mapy + popup markera — PR8 redesign.
+ * Wzor mocks/redesign-v2-components.html sekcja 4.
+ * ================================================================ */
+.rcn-tooltip {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    padding: 0;
+    box-shadow: var(--shadow-md);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-neutral-900);
+    pointer-events: none;
+}
+.rcn-tooltip::before { display: none; }
+
+.marker-tip { width: 320px; max-width: calc(100vw - 20px); font-family: var(--font-sans); }
+.marker-tip .tip-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-100);
+}
+/* Faza 4 fix: tooltip warstw (EGIB / GPKG / RCN-objects) miał div z atrybutami
+   bez paddingu -- tekst "obręb / pow / cena" przylegał do krawędzi ramki. */
+.marker-tip .tip-body {
+    padding: var(--space-3) var(--space-4);
+    line-height: var(--line-relaxed);
+    color: var(--color-neutral-700);
+}
+.marker-tip .tip-body strong { color: var(--color-neutral-900); }
+.marker-tip .tip-body .tip-meta {
+    display: block;
+    margin-top: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--color-neutral-500);
+    font-family: var(--font-mono);
+    word-break: break-all;
+}
+.marker-tip .tip-badge {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--color-primary-700);
+    letter-spacing: 0.06em;
+}
+.marker-tip .tip-date {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    font-size: var(--text-xs);
+    color: var(--color-neutral-500);
+    font-weight: var(--weight-medium);
+}
+.marker-tip .tip-body { padding: var(--space-4); }
+
+.marker-tip .tip-addr {
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-900);
+    margin-bottom: var(--space-1);
+    letter-spacing: -0.01em;
+}
+.marker-tip .tip-meta {
+    color: var(--color-neutral-500);
+    font-size: var(--text-xs);
+    margin-bottom: var(--space-3);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.marker-tip .tip-meta .mono {
+    font-family: var(--font-mono);
+    color: var(--color-neutral-700);
+    font-size: var(--text-xs);
+}
+.marker-tip .tip-meta .dot { color: var(--color-neutral-300); }
+
+.marker-tip .tip-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: var(--weight-medium);
+    border: 1px solid;
+}
+.marker-tip .tip-type-badge .dot-color { width: 6px; height: 6px; border-radius: 50%; }
+.marker-tip .tip-type-badge.t-lokal { color: #166534; border-color: #86EFAC; background: #F0FDF4; }
+.marker-tip .tip-type-badge.t-lokal .dot-color { background: var(--color-type-lokal); }
+.marker-tip .tip-type-badge.t-grunt-zab { color: #075985; border-color: #7DD3FC; background: #F0F9FF; }
+.marker-tip .tip-type-badge.t-grunt-zab .dot-color { background: var(--color-type-grunt-zab); }
+.marker-tip .tip-type-badge.t-grunt-niezab { color: #1E40AF; border-color: #93C5FD; background: #EFF6FF; }
+.marker-tip .tip-type-badge.t-grunt-niezab .dot-color { background: var(--color-type-grunt-niezab); }
+.marker-tip .tip-type-badge.t-budynek { color: #9A3412; border-color: #FDBA74; background: #FFF7ED; }
+.marker-tip .tip-type-badge.t-budynek .dot-color { background: var(--color-type-budynek); }
+.marker-tip .tip-type-badge.t-inne { color: var(--color-neutral-700); border-color: var(--color-neutral-300); background: var(--color-neutral-100); }
+.marker-tip .tip-type-badge.t-inne .dot-color { background: var(--color-type-inne); }
+
+.marker-tip .tip-prices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--color-neutral-50);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-3);
+}
+.marker-tip .tip-price-block { display: flex; flex-direction: column; gap: 2px; }
+.marker-tip .tip-price-block .label {
+    font-size: 11px;
+    color: var(--color-neutral-500);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: var(--weight-semibold);
+}
+.marker-tip .tip-price-block .value {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-900);
+    font-size: var(--text-base);
+}
+
+.marker-tip .tip-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+/* Sąsiedzi w X m -- pasek 4 buttonów radius pod tip-actions, w popupach
+   markerów (główna mapa + modal mapy). Klik filtruje tabelę do transakcji
+   w promieniu (ST_DWithin / ST_Distance). 4 button + label muszą zmieścić
+   się w jednym rzędzie -- nowrap, mniejsze padding/gap. */
+.marker-tip .tip-neighbors {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: var(--space-2);
+    padding: 8px 0 4px;
+    border-top: 1px solid var(--color-neutral-100);
+    flex-wrap: nowrap;
+}
+.marker-tip .tip-neighbors-label {
+    font-size: 11px;
+    color: var(--color-neutral-600);
+    font-weight: var(--weight-medium);
+    margin-right: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.marker-tip .tip-neighbor-btn {
+    height: 26px;
+    padding: 0 8px;
+    border-radius: var(--radius-sm);
+    background: white;
+    border: 1px solid var(--color-primary-200, #c7d2e8);
+    color: var(--color-primary-700);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease);
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+}
+.marker-tip .tip-neighbor-btn:hover {
+    background: var(--color-primary-700);
+    color: white;
+    border-color: var(--color-primary-700);
+    transform: translateY(-1px);
+}
+.marker-tip .tip-btn-primary,
+.marker-tip .tip-btn-secondary {
+    height: 36px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+    border: 1px solid;
+    transition: all var(--duration-fast) var(--ease);
+}
+.marker-tip .tip-btn-primary {
+    background: var(--color-accent-500);
+    color: var(--color-neutral-950);
+    border-color: var(--color-accent-500);
+}
+.marker-tip .tip-btn-primary:hover {
+    background: var(--color-accent-600);
+    color: white;
+    border-color: var(--color-accent-600);
+}
+.marker-tip .tip-btn-primary.in-cart {
+    background: white;
+    color: var(--color-accent-700);
+    border-color: var(--color-accent-500);
+}
+.marker-tip .tip-btn-secondary {
+    background: white;
+    color: var(--color-neutral-900);
+    border-color: var(--color-neutral-300);
+}
+.marker-tip .tip-btn-secondary:hover {
+    background: var(--color-neutral-50);
+    border-color: var(--color-neutral-400);
+}
+
+.marker-tip .tip-links {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-neutral-100);
+    font-size: var(--text-xs);
+}
+/* Pill-button dla zewnętrznych linków (Street View, Geoportal) -- tu jako
+   pełnowartościowe akcje (zamiast ostrego underline-text-link). Każdy ma
+   swoją ikonkę SVG (eye dla Street View, map-pin dla Geoportal). */
+.marker-tip .tip-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: var(--radius-md);
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    color: var(--color-neutral-800);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: var(--weight-semibold);
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease);
+    line-height: 1;
+}
+.marker-tip .tip-link-btn svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+}
+.marker-tip .tip-link-btn:hover {
+    background: var(--color-neutral-50);
+    border-color: var(--color-primary-500);
+    color: var(--color-primary-700);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+.marker-tip .tip-link-btn.tip-link-streetview svg {
+    color: var(--color-primary-700);
+}
+.marker-tip .tip-link-btn.tip-link-geoportal svg {
+    color: var(--color-accent-700);
+}
+.marker-tip .tip-link-btn.tip-link-geoportal:hover {
+    border-color: var(--color-accent-600);
+    color: var(--color-accent-700);
+}
+/* Stary fallback dla raw <a> (np. tooltip) -- zachowane. */
+.marker-tip .tip-links a:not(.tip-link-btn) {
+    color: var(--color-primary-700);
+    text-decoration: none;
+}
+.marker-tip .tip-links a:hover {
+    color: var(--color-primary-900);
+    text-decoration: underline;
+}
+
+/* ================================================================
+ * Aureola amber po focus markera (wbFocusOnMap).
+ * Pulsujace kolo wokol punktu, animacja 2 razy w 2 sekundach.
+ * ================================================================ */
+.wb-focus-halo { pointer-events: none; }
+.wb-focus-halo-ring {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(245, 158, 11, 0.30);
+    border: 4px solid var(--color-accent-500);
+    animation: focusHaloPulse 1s ease-out 2;
+    box-sizing: border-box;
+}
+@keyframes focusHaloPulse {
+    0%   { transform: scale(0.4); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* ================================================================
+ * Agregaty per obreb (zoom <14) -- DivIcon HTML kolko z liczba
+ * ================================================================ */
+/* PR8 fix2: agregaty per obreb USUNIETE -- zastapione plansza overlay
+   "Przybliz mape...". Faza 5 (po PR10) wprowadzi alternatywe: klik
+   w obiekt RCN -> modal transakcji. */
+.wb-zoom-hint {
+    position: absolute;
+    /* PR8 fix3: top 30% zamiast 50% (planszy nie zaslania drawer ktory
+       siedzi na dole), z-index 1150 nad drawerem (1100), pod sidebar (1200). */
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6) var(--space-8);
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+    max-width: 380px;
+    z-index: 1150;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    font-family: var(--font-sans);
+    pointer-events: auto;
+    color: var(--color-neutral-700);
+}
+.wb-zoom-hint svg { color: var(--color-primary-700); margin-bottom: var(--space-2); }
+.wb-zoom-hint-title {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-900);
+    letter-spacing: -0.01em;
+}
+.wb-zoom-hint-meta {
+    font-size: var(--text-sm);
+    color: var(--color-neutral-500);
+}
+.wb-zoom-hint-meta strong {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    color: var(--color-neutral-900);
+    font-weight: var(--weight-semibold);
+}
+
+/* ================================================================
+ * Empty state w tabeli (PR9) -- gdy filter daje 0 wynikow.
+ * Wzor mocks/redesign-v2-components.html sekcja 5.
+ * ================================================================ */
+.wb-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: var(--space-12) var(--space-4);
+    max-width: 460px;
+    margin: 0 auto;
+    gap: var(--space-3);
+    font-family: var(--font-sans);
+}
+.wb-empty-icon {
+    width: 64px;
+    height: 64px;
+    background: var(--color-primary-50);
+    color: var(--color-primary-700);
+    border-radius: var(--radius-full);
+    display: grid;
+    place-items: center;
+    margin-bottom: var(--space-2);
+}
+.wb-empty-icon svg { width: 32px; height: 32px; }
+.wb-empty-title {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-900);
+    letter-spacing: -0.01em;
+    margin: 0;
+}
+.wb-empty-desc {
+    color: var(--color-neutral-500);
+    font-size: var(--text-sm);
+    margin: 0;
+    line-height: 1.55;
+}
+.wb-empty-desc strong {
+    color: var(--color-neutral-900);
+    font-weight: var(--weight-semibold);
+}
+.wb-empty-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* ================================================================
+ * Loading skeleton (PR9) -- shimmer rows zamiast spinera.
+ * Wzor mocks/redesign-v2-components.html sekcja 6.
+ * ================================================================ */
+.wb-skel-table {
+    background: white;
+    padding: 0;
+}
+.wb-skel-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-100);
+    height: var(--row-h);
+}
+.wb-skel {
+    height: 12px;
+    background: linear-gradient(
+        90deg,
+        var(--color-neutral-100) 0%,
+        var(--color-neutral-200) 50%,
+        var(--color-neutral-100) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1500ms infinite linear;
+    border-radius: var(--radius-sm);
+}
+.wb-skel.pill { height: 22px; border-radius: var(--radius-full); }
+@keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ================================================================
+ * Toasty (PR9) -- powiadomienia po akcji w prawym dolnym rogu.
+ * Wzor mocks/redesign-v2-components.html sekcja 7.
+ * ================================================================ */
+.wb-toast-stack {
+    position: fixed;
+    bottom: var(--space-4);
+    right: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: flex-end;
+    z-index: var(--z-toast);
+    pointer-events: none;  /* indywidualny toast ma pointer-events: auto */
+}
+.wb-toast {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    min-width: 320px;
+    max-width: 420px;
+    font-family: var(--font-sans);
+    pointer-events: auto;
+    animation: toastIn 250ms var(--ease);
+}
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.wb-toast-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+}
+.wb-toast-success .wb-toast-icon {
+    background: var(--color-success-50);
+    color: var(--color-success-500);
+}
+.wb-toast-error .wb-toast-icon {
+    background: var(--color-danger-50);
+    color: var(--color-danger-500);
+}
+.wb-toast-info .wb-toast-icon {
+    background: var(--color-primary-50);
+    color: var(--color-primary-700);
+}
+.wb-toast-content { flex: 1; min-width: 0; }
+.wb-toast-title {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-900);
+    margin-bottom: 2px;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+}
+.wb-toast-desc {
+    font-size: var(--text-xs);
+    color: var(--color-neutral-500);
+    line-height: 1.45;
+    word-break: break-word;
+}
+.wb-toast-close {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    color: var(--color-neutral-400);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all var(--duration-fast) var(--ease);
+    flex-shrink: 0;
+}
+.wb-toast-close:hover {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-700);
+}
+.wb-toast-close:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+.marker-tip .tip-btn-table:hover {
+    background: #e0e7ff;
+}
+.pill {
+    display: inline-block;
+    padding: 0.05rem 0.45rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+.pill-plot     { background: #1f4e79; }
+.pill-building { background: #d27a3a; }
+.pill-local    { background: #5a9c61; }
+.pill-tx       { background: #475569; }
+
+.leaflet-control-layers {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(4px);
+    font-size: 0.8rem;
+}
+.leaflet-control-layers-expanded {
+    padding: 0.4rem 0.6rem;
+}
+.leaflet-control-layers-overlays label {
+    color: var(--text);
+    margin: 0.15rem 0;
+}
+
+.leaflet-tooltip.rcn-tooltip.leaflet-tooltip-top::before,
+.leaflet-tooltip.rcn-tooltip.leaflet-tooltip-bottom::before,
+.leaflet-tooltip.rcn-tooltip.leaflet-tooltip-left::before,
+.leaflet-tooltip.rcn-tooltip.leaflet-tooltip-right::before {
+    display: none;
+}
+
+/* ================================================================
+ * Tailwind-compatible button helpers (used by workspace.html)
+ * ================================================================ */
+.btn-primary, .btn-ghost, .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+    white-space: nowrap;
+}
+.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+.btn-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn-ghost { background: white; color: var(--text); border-color: #d1d5db; }
+.btn-ghost:hover:not(:disabled) { background: #f8fafc; border-color: #9ca3af; color: var(--primary); }
+.btn-danger { background: white; color: var(--danger); border-color: #fca5a5; }
+.btn-danger:hover:not(:disabled) { background: var(--color-danger-50); border-color: var(--danger); }
+.btn-primary:disabled, .btn-ghost:disabled, .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-sm { padding: 0.2rem 0.55rem; font-size: 0.8rem; }
+
+/* PR1 redesign: usunięto .filters-bar i .workspace-body — pozostałości po
+   classic layoucie.
+   PR4 redesign: usunięto .wb-slideover (slide-over filtrów) — zastąpiony
+   przez zadokowany sidebar .wb-sidebar w gridzie .wb-canvas. */
+
+/* ================================================================
+ * Variant B (map-first) layout — włączany przez ?layout=b.
+ * Wszystkie klasy prefiksowane `.wb-*` żeby nie kolidować z classic.
+ * ================================================================ */
+.workspace-b { padding: 0; }
+.wb-root {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+/* ================================================================
+ * Topbar — PR2 redesign (Modern Utilitarian Calmed, mocks/redesign-v1)
+ * Jeden 64-pikselowy pasek: brand + workspace name + statystyki
+ * po lewej; akcje (kolekcja, Admin) po prawej. Geist Sans dla tekstu,
+ * Geist Mono z tnum dla statystyk (cyfry idealnie się ustawiają).
+ * ================================================================ */
+.wb-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-6);
+    padding: 0 var(--space-6);
+    background: white;
+    border-bottom: 1px solid var(--color-neutral-200);
+    flex-wrap: nowrap;
+    /* Topbar zawsze nad mapą (z-leaflet 1000) i nad popoverami (1500).
+       Admin menu wewnątrz topbara ma własny z-index. Nie konkuruje z modalami. */
+    position: relative;
+    z-index: var(--z-popover);
+    height: var(--topbar-h);
+    min-height: var(--topbar-h);
+}
+.wb-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-width: 0;
+}
+.wb-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex: none;
+}
+
+/* Pionowy separator między grupami w topbarze */
+.wb-topbar-divider {
+    width: 1px;
+    height: 32px;
+    background: var(--color-neutral-200);
+    flex: none;
+}
+
+/* Faza 4: segment control [Mapa | Tabela] -- centrowany w topbarze
+   (wb-topbar ma justify-content:space-between i jest 3 dzieci: left | toggle | right). */
+.wb-view-toggle {
+    display: flex;
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-md);
+    padding: 3px;
+    gap: 2px;
+    flex: none;
+}
+.wb-view-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--color-neutral-700);
+    border-radius: 5px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    transition: all var(--ease) var(--duration-fast);
+    font-family: inherit;
+    white-space: nowrap;
+}
+.wb-view-btn:hover { color: var(--color-neutral-900); }
+.wb-view-btn.active {
+    background: #fff;
+    color: var(--color-primary-700);
+    box-shadow: var(--shadow-xs);
+}
+.wb-view-btn svg { flex-shrink: 0; }
+
+/* "Zmień workspace" -- link stylowany jak wb-view-btn ale z osobnym
+   marginesem od toggle Mapa/Tabela + ghost color (nie aktywny stan). */
+.wb-view-btn.wb-change-ws {
+    text-decoration: none;
+    margin-left: 12px;
+    border-left: 1px solid var(--color-neutral-200);
+    padding-left: 14px;
+    color: var(--color-neutral-700);
+}
+.wb-view-btn.wb-change-ws:hover {
+    color: var(--color-primary-700);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+/* Admin menu divider + logout (highlight czerwony hover) */
+.wb-admin-divider {
+    height: 1px;
+    background: var(--color-neutral-200);
+    margin: 4px 0;
+}
+.wb-admin-item.wb-admin-logout {
+    color: var(--color-danger-700, #b91c1c);
+}
+.wb-admin-item.wb-admin-logout:hover {
+    background: var(--color-danger-50, #fef2f2);
+    color: var(--color-danger-800, #991b1b);
+}
+
+/* Faza 4 commit 2: pełnoekranowy widok tabela.
+   Layout: flex row -- [main: toolbar+scroll-table] | [sidebar filtrów].
+   Sidebar reuse'owany z partials/_sidebar.html (ten sam co w widoku mapowym),
+   ale tu pozycjonowany jako flex item (override absolute z .wb-canvas > .wb-sidebar). */
+.wb-table-view {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    min-height: 0;
+    overflow: hidden;
+}
+.wb-table-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    background: white;
+}
+.wb-table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: white;
+    border-bottom: 1px solid var(--color-neutral-200);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    min-height: var(--toolbar-h);
+}
+.wb-table-toolbar-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+.wb-table-toolbar-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+.wb-table-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+    margin-left: auto;
+}
+.wb-table-scroll {
+    flex: 1;
+    overflow: auto;
+    background: white;
+    min-height: 0;
+}
+/* Tabela w widoku table-view zachowuje sticky-thead (jak w drawer) */
+.wb-table-scroll .wb-data-table {
+    width: 100%;
+}
+
+/* Sidebar w widoku table-view: flex item (nie absolute jak w wb-canvas).
+   Reset overrides + zachowanie collapse animacji. */
+.wb-table-view .wb-sidebar {
+    position: relative;
+    width: var(--sidebar-w);
+    flex: none;
+    transition: width var(--duration-base) var(--ease);
+    will-change: width;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    border-left: 1px solid var(--color-neutral-200);
+}
+.wb-table-view.sidebar-collapsed .wb-sidebar {
+    width: var(--sidebar-collapsed-w);
+}
+/* Identyczne zachowanie collapsed state jak w canvas (ukrycie sekcji body, etc.).
+   Reguły .wb-canvas.sidebar-collapsed .wb-sidebar-* są poniżej -- duplikuję dla
+   .wb-table-view.sidebar-collapsed bo nazewnictwo selectorow na wb-canvas
+   jest zaszyte w app.css (zaprojektowane dla mapy). */
+.wb-table-view.sidebar-collapsed .wb-sidebar-header { padding: var(--space-3) 0; }
+.wb-table-view.sidebar-collapsed .wb-sidebar-header {
+    flex-direction: column;
+    height: auto;
+    gap: var(--space-2);
+    border-bottom: none;
+}
+.wb-table-view.sidebar-collapsed .wb-sidebar-title { display: none; }
+.wb-table-view.sidebar-collapsed .wb-sidebar-body,
+.wb-table-view.sidebar-collapsed .wb-sidebar-footer { display: none; }
+.wb-table-view.sidebar-collapsed .wb-sidebar-collapsed-info { display: flex; }
+
+/* Mobile (≤900 px): sidebar jako overlay z translateX (jak w canvas). */
+@media (max-width: 900px) {
+    .wb-table-view .wb-sidebar {
+        position: fixed;
+        right: 0;
+        top: var(--topbar-h);
+        bottom: 0;
+        width: var(--sidebar-w);
+        z-index: var(--z-popover);
+        transform: translateX(100%);
+        transition: transform var(--duration-base) var(--ease);
+    }
+    .wb-table-view .wb-sidebar.is-open {
+        transform: translateX(0);
+    }
+    .wb-table-toolbar { gap: var(--space-2); padding: var(--space-2) var(--space-3); }
+}
+
+/* Brand: logo + tekst */
+.wb-brand-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-decoration: none;
+    color: var(--color-neutral-900);
+    transition: opacity var(--duration-fast) var(--ease);
+}
+.wb-brand-link:hover { opacity: 0.85; }
+.wb-brand-link:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 2px;
+    border-radius: var(--radius-md);
+}
+.wb-brand-logo {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--color-primary-700), var(--color-primary-500));
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: var(--weight-bold);
+    font-size: var(--text-sm);
+    letter-spacing: -0.02em;
+    box-shadow: var(--shadow-sm);
+    font-family: var(--font-sans);
+}
+.wb-brand-text {
+    font-family: var(--font-sans);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-md);
+    color: var(--color-neutral-900);
+    letter-spacing: -0.01em;
+}
+.wb-brand-text small {
+    color: var(--color-neutral-500);
+    font-weight: var(--weight-regular);
+    margin-left: 6px;
+}
+
+/* Workspace block (nazwa + statystyki) — w jednej linii, nie kolumna */
+.wb-workspace-block {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+}
+.wb-workspace-name {
+    font-family: var(--font-sans);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-base);
+    color: var(--color-neutral-900);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wb-workspace-stats {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-4);
+    color: var(--color-neutral-500);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    white-space: nowrap;
+}
+.wb-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+}
+.wb-stat-value {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-900);
+}
+
+/* Stary stub .wb-brand-sep (tekstowy separator "·") -- po PR2 zastąpiony
+   przez .wb-topbar-divider (vertical line). Klasa zostawiona pusta na
+   wypadek gdyby gdzieś jeszcze tkwiła w markup -- nie szkodzi. */
+.wb-brand-sep { display: none; }
+
+/* Admin dropdown */
+.wb-admin-dropdown { position: relative; }
+.wb-admin-caret {
+    font-size: var(--text-xs);
+    opacity: 0.7;
+    margin-left: 2px;
+}
+.wb-admin-menu {
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    right: 0;
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    min-width: 220px;
+    padding: var(--space-1);
+    z-index: var(--z-tooltip);
+    font-family: var(--font-sans);
+}
+.wb-admin-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--color-neutral-900);
+    text-decoration: none;
+    transition: background var(--duration-fast) var(--ease);
+}
+.wb-admin-item:hover {
+    background: var(--color-neutral-100);
+    color: var(--color-primary-700);
+}
+.wb-admin-item:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: -3px;
+}
+
+/* ================================================================
+ * Canvas — PR4 redesign (absolute positioning, jak Variant B było).
+ * Mapa zajmuje canvas MINUS szerokość sidebaru po prawej.
+ * Sidebar pinned do prawej. Drawer dolny ograniczony do kolumny mapy.
+ * Wszystko absolute -> żadnego zwijania, ni rzędów, ni flexa konfliktów.
+ * Na mobile (≤ 900 px) sidebar ujawnia się jako overlay (fixed).
+ * ================================================================ */
+.wb-canvas {
+    flex: 1;
+    position: relative;
+    background: #e2e8f0;
+    min-height: 0;
+    overflow: hidden;
+}
+/* Mapa: absolute, lewa krawędź 0, prawa = szerokość sidebaru.
+   UWAGA: BRAK transition na `right` -- transition wymusza repaint
+   mapy Leaflet co klatkę (gdy user toggluje sidebar), a Leaflet z 10k
+   markerami klastrowanymi jest dużo droższy niż "skok" right 380→48 px.
+   Mapa po toggle skacze instant, sidebar animuje się 250 ms (wystarcza
+   wizualnie, mapa nadąża z invalidateSize w toggleFiltersCollapsed). */
+.wb-canvas > #map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: var(--sidebar-w);
+}
+.wb-canvas.sidebar-collapsed > #map {
+    right: var(--sidebar-collapsed-w);
+}
+/* Sidebar: pinned do prawej. will-change: width sygnalizuje GPU,
+   żeby utworzyło osobną warstwę -- mapa nie musi się repaintować
+   gdy sidebar animuje się szerokością. */
+.wb-canvas > .wb-sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--sidebar-w);
+    transition: width var(--duration-base) var(--ease);
+    will-change: width;
+}
+.wb-canvas.sidebar-collapsed > .wb-sidebar {
+    width: var(--sidebar-collapsed-w);
+}
+/* Drawer dolny: pinned do dołu kolumny mapy. Bez transition (jak mapa). */
+.wb-canvas > .wb-drawer {
+    right: var(--sidebar-w);
+}
+.wb-canvas.sidebar-collapsed > .wb-drawer {
+    right: var(--sidebar-collapsed-w);
+}
+/* ================================================================
+ * Drawer toolbar: licznik + cap warning + paginator + filtry per-kol
+ * PR3 redesign — wzór mocks/redesign-v1-utilitarian-calmed.html toolbar.
+ * ================================================================ */
+
+/* Licznik wyników jako pill (granat na neutralnym), z mono dla liczby */
+.wb-result-count {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px var(--space-3);
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-full);
+    font-size: var(--text-sm);
+    color: var(--color-neutral-700);
+    font-family: var(--font-sans);
+}
+.wb-result-count strong {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-900);
+}
+
+/* Ostrzeżenie cap markerów — amber, czystszy niż dotychczas */
+.wb-cap-warn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px var(--space-2);
+    color: var(--color-accent-700);
+    background: var(--color-accent-50);
+    border: 1px solid #FCD34D;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    font-family: var(--font-sans);
+}
+
+/* Paginator — 32 px buttony, mono dla liczb */
+.wb-pager {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-right: var(--space-3);
+}
+.wb-pager-btn {
+    border: none;
+    background: transparent;
+    color: var(--color-neutral-700);
+    width: var(--btn-sm-h);
+    height: var(--btn-sm-h);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    line-height: 1;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.wb-pager-btn:hover:not(:disabled) {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-900);
+}
+.wb-pager-btn:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+.wb-pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.wb-pager-page {
+    padding: 0 var(--space-2);
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    font-size: var(--text-xs);
+    color: var(--color-neutral-500);
+    min-width: 56px;
+    text-align: center;
+}
+.wb-pager-page strong {
+    color: var(--color-neutral-900);
+    font-weight: var(--weight-semibold);
+}
+.wb-pager-range {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    font-size: var(--text-xs);
+    color: var(--color-neutral-500);
+    margin-left: var(--space-2);
+    padding-left: var(--space-3);
+    border-left: 1px solid var(--color-neutral-200);
+}
+.wb-pager-range strong { color: var(--color-neutral-900); font-weight: var(--weight-semibold); }
+
+/* Filtry per-kolumna w headerze tabeli — czystsze tła, focus ringi */
+.wb-filter-row th {
+    background: var(--color-neutral-50) !important;
+    padding: 4px 6px !important;
+    border-bottom: 1px solid var(--color-neutral-200);
+}
+.wb-filter-row input,
+.wb-filter-row select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 8px;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-sm);
+    background: white;
+    color: var(--color-neutral-900);
+    transition: all var(--duration-fast) var(--ease);
+}
+.wb-filter-row input::placeholder { color: var(--color-neutral-400); }
+.wb-filter-row input:hover,
+.wb-filter-row select:hover { border-color: var(--color-neutral-300); }
+.wb-filter-row input:focus,
+.wb-filter-row select:focus {
+    outline: none;
+    border-color: var(--color-primary-500);
+    box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+.wb-filter-range { display: flex; gap: 3px; }
+.wb-filter-range input { min-width: 0; font-size: var(--text-xs); }
+
+/* Custom styling dla Leaflet layer control -- żeby wyglądało spójnie z resztą UI
+   zamiast default szarej ramki. */
+.leaflet-control-layers {
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12) !important;
+    background: #ffffff !important;
+    overflow: hidden;
+}
+.leaflet-control-layers-toggle {
+    background-size: 22px 22px !important;
+    width: 40px !important;
+    height: 40px !important;
+}
+.leaflet-control-layers-expanded {
+    padding: 10px 14px !important;
+    min-width: 260px;
+    font-size: 0.85rem;
+}
+.leaflet-control-layers-expanded label {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    cursor: pointer;
+    transition: color 0.12s ease;
+}
+.leaflet-control-layers-expanded label:hover { color: var(--primary); }
+.leaflet-control-layers-expanded label input[type="radio"],
+.leaflet-control-layers-expanded label input[type="checkbox"] {
+    accent-color: var(--primary);
+    width: 15px; height: 15px;
+    margin-right: 2px;
+}
+.leaflet-control-layers-separator {
+    margin: 8px 0 !important;
+    border-top: 1px solid var(--border) !important;
+    opacity: 0.6;
+}
+/* Wiki-linki w rozwinięciu wiersza -- klikalne identyfikatory obiektów.
+   Przycisk 🔗 pojawia się obok ident i filtruje tabelę do wszystkich transakcji
+   tej samej działki/budynku/lokalu. */
+.wb-ident { font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.82rem; color: #334155; }
+.wb-wiki-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: transparent;
+    border: 1px solid transparent;
+    margin-left: 4px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--color-primary-700);
+    opacity: 0.6;
+    transition: all 0.12s ease;
+    vertical-align: middle;
+    padding: 0;
+}
+.wb-wiki-btn svg {
+    width: 13px;
+    height: 13px;
+}
+.wb-wiki-btn:hover {
+    opacity: 1;
+    background: var(--color-primary-50);
+    border-color: var(--color-primary-500);
+    transform: scale(1.08);
+}
+
+/* Focused badge w popup focused markera (modal mapy) -- SVG star + label
+   "FOCUSED" w amber. Zastępuje stary emoji ⭐. */
+.marker-tip .tip-badge.tip-badge-focused {
+    color: var(--color-accent-700);
+    background: var(--color-accent-50);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.marker-tip .tip-badge.tip-badge-focused .tip-badge-icon {
+    width: 11px;
+    height: 11px;
+    color: var(--color-accent-500);
+    flex-shrink: 0;
+}
+
+/* Modal "Ustawienia jakości danych" -- grid 1fr | 140px | 1fr (label | input | hint) */
+.quality-thresh-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+}
+.quality-thresh-row {
+    display: grid;
+    grid-template-columns: 1fr 140px 1fr;
+    align-items: center;
+    gap: 0.75rem;
+}
+.quality-thresh-row label {
+    font-weight: 500;
+    color: var(--color-neutral-800);
+    font-size: 0.92rem;
+}
+.quality-thresh-row input {
+    padding: 6px 10px;
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    text-align: right;
+}
+.quality-thresh-row input:focus {
+    outline: 2px solid var(--color-primary-200);
+    border-color: var(--color-primary-500);
+}
+
+/* Cart warning -- pasek nad listą koszyka gdy są flagged transakcje. */
+.wb-cart-quality-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-3);
+    margin-bottom: var(--space-3);
+    background: var(--color-danger-50, #fef2f2);
+    border: 1px solid var(--color-danger-200, #fecaca);
+    border-radius: var(--radius-md);
+    color: var(--color-danger-700, #b91c1c);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+}
+.wb-cart-quality-warning svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Inline ikona ⚠ w nagłówku sidebar section "Jakość danych" */
+.wb-quality-icon-inline {
+    display: inline-flex;
+    vertical-align: middle;
+    color: var(--color-danger-600, #dc2626);
+}
+.wb-quality-icon-inline svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* Data quality badge ⚠ obok ceny -- SVG triangle alert. Sygnalizuje
+   że transakcja ma flagę jakości danych (multi-object akt, no_objects,
+   extreme price/m², itp). Hover/klik tooltip lista flag (wbQualityTooltip). */
+.wb-quality-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 4px;
+    color: var(--color-danger-600, #dc2626);
+    cursor: help;
+    vertical-align: middle;
+    border-radius: var(--radius-sm);
+    transition: background var(--duration-fast) var(--ease);
+}
+.wb-quality-badge:hover, .wb-quality-badge:focus-visible {
+    background: var(--color-danger-50, #fef2f2);
+    outline: none;
+}
+.wb-quality-badge svg {
+    width: 13px;
+    height: 13px;
+    display: block;
+}
+
+/* Note indicator -- SVG document/plus zamiast emoji 📝/＋ */
+.wb-note-ind .wb-note-svg {
+    width: 12px;
+    height: 12px;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+/* Inline ikony w btn-ghost (Admin, Warstwy) -- 14 px square, lewy margines
+   przed labelem. Caret 12 px po prawej z transition rotate. */
+.btn-ghost .btn-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+.btn-ghost .btn-caret {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    margin-left: 2px;
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Faza 4 commit 3: modal "Pokaż na mapie" -- pojedyncza transakcja + bbox-aware sąsiedzi.
+   Backdrop zaciemnia tło (jak inne modale), modal box zajmuje ~92% ekranu. */
+.wb-map-modal-backdrop {
+    z-index: var(--z-modal-backdrop);
+    background: rgba(28, 25, 23, 0.55);
+    backdrop-filter: blur(2px);
+}
+.wb-map-modal {
+    position: relative;
+    width: min(1400px, 96vw);
+    height: min(880px, 92vh);
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: auto;
+}
+.wb-map-modal-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-5);
+    border-bottom: 1px solid var(--color-neutral-200);
+    background: white;
+    flex-shrink: 0;
+}
+.wb-map-modal-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    min-width: 0;
+}
+.wb-map-modal-title strong {
+    font-size: var(--text-md);
+    color: var(--color-neutral-900);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wb-map-modal-title svg { color: var(--color-accent-600); flex-shrink: 0; }
+.wb-map-modal-meta {
+    flex-shrink: 0;
+    padding: 0 var(--space-3);
+}
+.wb-map-modal-meta strong {
+    color: var(--color-neutral-900);
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1;
+}
+.wb-map-modal-body {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+}
+.wb-modal-map-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+/* X close button -- selektor specyficzny zeby nie polegac na inheritance
+   z .wb-cart-modal-head .close-btn (różny scope modal). */
+.wb-map-modal-head .close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    color: var(--color-neutral-500);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all var(--duration-fast) var(--ease);
+    flex-shrink: 0;
+}
+.wb-map-modal-head .close-btn:hover {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-900);
+}
+.wb-map-modal-head .close-btn:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+.wb-map-modal-head .close-btn svg { width: 18px; height: 18px; }
+
+/* Faza 4 commit 3 fix: dropdown wyboru warstw widocznych w modalu mapy. */
+.wb-modal-layers {
+    position: relative;
+    flex-shrink: 0;
+}
+.wb-modal-layers-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 320px;
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    padding: var(--space-2);
+    z-index: var(--z-tooltip);
+}
+.wb-modal-layers-divider {
+    height: 1px;
+    background: var(--color-neutral-100);
+    margin: var(--space-1) 0;
+}
+/* Krok 1: hierarchia paneli warstw -- sekcje z nagłówkiem i grupowaniem
+   tematycznym (Transakcje | Warstwy RCN | Custom GPKG | EGIB). */
+.wb-layer-section {
+    padding: 4px 0;
+}
+.wb-layer-section + .wb-layer-section {
+    border-top: 1px solid var(--color-neutral-100);
+    margin-top: 4px;
+    padding-top: 8px;
+}
+.wb-layer-section-title {
+    font-size: 11px;
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-500);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0 var(--space-2) 4px;
+}
+.wb-layer-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px var(--space-2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--color-neutral-900);
+    transition: background var(--ease) var(--duration-fast);
+}
+.wb-layer-toggle:hover { background: var(--color-neutral-50); }
+.wb-layer-toggle input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--color-primary-700);
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+.wb-layer-toggle .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+.wb-layer-toggle-label {
+    flex: 1;
+    color: var(--color-neutral-900);
+    font-weight: var(--weight-medium);
+}
+.wb-layer-zoom-hint {
+    font-size: 10px;
+    color: var(--color-neutral-500);
+    background: var(--color-neutral-100);
+    padding: 2px 6px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+}
+.wb-layer-count {
+    font-size: 11px;
+    font-weight: var(--weight-semibold);
+    color: var(--color-primary-700);
+    background: var(--color-primary-50);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+    min-width: 28px;
+    text-align: center;
+}
+.wb-layer-toggle small {
+    font-size: 11px;
+    color: var(--color-neutral-500);
+    margin-left: var(--space-1);
+}
+
+/* Faza 4 commit 4: toggle "Cała baza | W kontekście filtru" w panelu warstw modala. */
+.wb-modal-filter-scope {
+    display: flex;
+    gap: 2px;
+    background: var(--color-neutral-100);
+    padding: 3px;
+    border-radius: var(--radius-md);
+    margin: var(--space-1) var(--space-2);
+}
+.wb-modal-filter-scope button {
+    flex: 1;
+    padding: 5px 8px;
+    border: 0;
+    background: transparent;
+    color: var(--color-neutral-700);
+    font-size: 11px;
+    font-weight: var(--weight-medium);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all var(--ease) var(--duration-fast);
+    font-family: inherit;
+}
+.wb-modal-filter-scope button.active {
+    background: white;
+    color: var(--color-primary-700);
+    box-shadow: var(--shadow-xs);
+}
+.wb-modal-filter-scope button:hover:not(.active) {
+    color: var(--color-neutral-900);
+}
+
+/* Faza 4: select w nagłówku tabeli (kolumna Typ) -- spójny z wb-filter-row inputami. */
+.wb-col-select {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: var(--text-xs);
+    background: white;
+    color: var(--color-neutral-900);
+    cursor: pointer;
+}
+.wb-col-select:focus {
+    outline: none;
+    border-color: var(--color-primary-500);
+    box-shadow: 0 0 0 2px var(--color-primary-100);
+}
+
+/* Klikalne obręb/adres w głównym wierszu tabeli -- underline on hover. */
+.wb-linkable {
+    cursor: pointer;
+    text-decoration: underline dashed transparent;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.12s ease, color 0.12s ease;
+}
+.wb-linkable:hover {
+    color: var(--primary);
+    text-decoration-color: var(--primary);
+}
+
+/* Drobna legenda kolorów obok nazwy warstwy (globalny markdown kolorki) */
+.rcn-layer-legend {
+    display: inline-flex; gap: 3px; align-items: center;
+    margin-left: auto; font-size: 0.7rem;
+}
+.rcn-layer-legend span {
+    display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+}
+
+/* Drawer — tabela na dole mapy */
+/* ================================================================
+ * Drawer dolny — PR5 redesign.
+ * 3 presety wysokości: collapsed (42 px = sam header) / default (40 vh) /
+ * expanded (85 vh). Drag-resize zachowany dla power-userów.
+ * Wzór mocks/redesign-v1-utilitarian-calmed.html drawer.
+ * ================================================================ */
+.wb-drawer {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: white;
+    border-top: 1px solid var(--color-neutral-200);
+    box-shadow: var(--shadow-md);
+    /* z-index 1100: powyżej Leaflet controls (1000) + attribution (800-1000),
+       poniżej sidebara (1200) i modali (2000+). Bez tego po collapsed drawerze
+       napis "Leaflet | OpenStreetMap" przesłaniał presety. */
+    z-index: 1100;
+    display: flex; flex-direction: column;
+    height: 40vh;
+    min-height: 42px;
+    max-height: 90vh;
+    transition: height var(--duration-base) var(--ease);
+    font-family: var(--font-sans);
+}
+.wb-drawer.collapsed { height: 42px; }
+.wb-drawer.expanded  { height: 80vh; }
+
+/* Drag handle — wyraźny grip 3-line indicator z hover state */
+.wb-drawer-handle {
+    height: 12px; width: 100%;
+    cursor: ns-resize;
+    display: flex; align-items: center; justify-content: center;
+    border-bottom: 1px solid var(--color-neutral-200);
+    background: var(--color-neutral-50);
+    flex: none;
+    transition: background var(--duration-fast) var(--ease);
+    user-select: none;
+}
+.wb-drawer-handle:hover { background: var(--color-primary-50); }
+.wb-drawer-handle:active { background: var(--color-primary-100); cursor: ns-resize; }
+.wb-drawer-handle::before {
+    content: '';
+    width: 48px; height: 4px;
+    background: var(--color-neutral-300);
+    border-radius: var(--radius-full);
+    transition: background var(--duration-fast) var(--ease);
+}
+.wb-drawer-handle:hover::before { background: var(--color-primary-500); }
+
+/* Header drawera — primary text, większy oddech */
+.wb-drawer-header {
+    padding: var(--space-2) var(--space-4);
+    display: flex; align-items: center;
+    gap: var(--space-3);
+    border-bottom: 1px solid var(--color-neutral-200);
+    font-size: var(--text-sm);
+    color: var(--color-neutral-700);
+    flex: none;
+    flex-wrap: wrap;
+    background: white;
+}
+
+/* Toggle "▴/▾" pokazuje/chowa toolbar (chipy + paginacja) -- przydatne
+   gdy drawer jest collapsed lub user chce maksimum miejsca dla tabeli. */
+.wb-drawer-toolbar-toggle {
+    flex: none;
+    width: 28px; height: 28px;
+    border: 1px solid var(--color-neutral-200);
+    background: white;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    color: var(--color-neutral-500);
+    font-size: var(--text-sm);
+    line-height: 1;
+    display: inline-grid;
+    place-items: center;
+    transition: all var(--duration-fast) var(--ease);
+}
+.wb-drawer-toolbar-toggle:hover {
+    color: var(--color-primary-700);
+    border-color: var(--color-primary-500);
+    background: var(--color-primary-50);
+}
+.wb-drawer-toolbar-toggle:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+
+.wb-drawer-title {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-family: var(--font-sans);
+}
+.wb-drawer-title b {
+    color: var(--color-neutral-900);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-sm);
+}
+.wb-drawer-toolbar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+/* Chipy aktywnych filtrów — primary-50 bg, primary-200 border, primary-700 text.
+   Wzór mocks/redesign-v1-utilitarian-calmed.html .chip */
+.wb-drawer-toolbar .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-2) 0 var(--space-3);
+    height: 28px;
+    background: var(--color-primary-50);
+    border: 1px solid var(--color-primary-200);
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    color: var(--color-primary-700);
+    font-family: var(--font-sans);
+    font-weight: var(--weight-medium);
+    transition: background var(--duration-fast) var(--ease);
+}
+.wb-drawer-toolbar .chip:hover { background: var(--color-primary-100); }
+.wb-drawer-toolbar .chip b {
+    font-weight: var(--weight-regular);
+    color: var(--color-primary-500);
+    margin-right: 2px;
+}
+.wb-drawer-toolbar .chip button {
+    width: 18px;
+    height: 18px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: var(--color-primary-500);
+    border-radius: var(--radius-full);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    transition: all var(--duration-fast) var(--ease);
+    font-size: 0;
+}
+.wb-drawer-toolbar .chip button::before {
+    content: '×';
+    font-size: 14px;
+    line-height: 1;
+    font-family: var(--font-sans);
+}
+.wb-drawer-toolbar .chip button:hover {
+    background: var(--color-primary-200);
+    color: var(--color-primary-700);
+}
+
+/* Spatial chip — amber wariant (BBOX/Polygon na mapie) */
+.wb-drawer-toolbar .chip.spatial {
+    background: var(--color-accent-50);
+    border-color: #FCD34D;
+    color: var(--color-accent-700);
+}
+.wb-drawer-toolbar .chip.spatial b { color: var(--color-accent-600); }
+.wb-drawer-toolbar .chip.spatial button { color: var(--color-accent-700); }
+.wb-drawer-toolbar .chip.spatial button:hover { background: var(--color-accent-100); }
+
+/* Przycisk "+ Filtruj" — secondary outline w wzorze chipa, ale z dashed bordere
+   żeby wizualnie wyglądał na "akcję dodawania" a nie na aktywny filtr */
+.wb-drawer-toolbar .chip-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-full);
+    background: white;
+    border: 1px dashed var(--color-neutral-300);
+    color: var(--color-primary-700);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease);
+}
+.wb-drawer-toolbar .chip-add:hover {
+    background: var(--color-primary-50);
+    border-color: var(--color-primary-500);
+    border-style: solid;
+}
+.wb-drawer-toolbar .chip-add:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+
+/* Krok 1 v3: button "Filtruj" standalone (bez chip-add, żeby nie konkurować
+   z descendant selector). Pozycja: PO PRAWEJ w toolbarze (chowa/rozwija
+   sidebar filtrów). Większy 40 px height, ikona + tekst obok siebie z gap 10. */
+.wb-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    flex-direction: row;
+    gap: 10px;
+    height: 40px;
+    padding: 0 22px;
+    background: var(--color-primary-700);
+    border: 1.5px solid var(--color-primary-700);
+    border-radius: var(--radius-md);
+    color: white;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-right: var(--space-2);
+    box-shadow: 0 2px 4px rgba(30, 58, 138, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transition: background var(--duration-fast) var(--ease),
+                box-shadow var(--duration-fast) var(--ease),
+                transform var(--duration-fast) var(--ease);
+}
+.wb-filter-btn:hover {
+    background: #15296b;
+    border-color: #15296b;
+    box-shadow: 0 4px 10px rgba(30, 58, 138, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transform: translateY(-1px);
+}
+.wb-filter-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(30, 58, 138, 0.4);
+}
+.wb-filter-btn:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 2px;
+}
+.wb-filter-btn[aria-expanded="false"] {
+    /* Sidebar zwiniety -- akcent zielony do wskazania "wcisnij zeby pokazac" */
+    background: var(--color-accent-700);
+    border-color: var(--color-accent-700);
+    box-shadow: 0 2px 4px rgba(180, 83, 9, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.wb-filter-btn[aria-expanded="false"]:hover {
+    background: var(--color-accent-600);
+    border-color: var(--color-accent-600);
+    box-shadow: 0 4px 10px rgba(180, 83, 9, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.wb-filter-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    stroke: white;
+}
+/* Pager + presety w drawer-actions powinny mieć normalny gap, button na końcu
+   (margin-left auto przesuwa go do prawej krawedzi nad sidebarem). */
+.wb-drawer-actions .wb-filter-btn {
+    margin-right: 0;
+    margin-left: auto;
+    order: 99;
+}
+.wb-table-toolbar-actions .wb-filter-btn {
+    margin-right: 0;
+    margin-left: auto;
+    order: 99;
+}
+.wb-drawer-actions {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+/* PR5: Segment 3 presetów (Schowane / 40% / 80%) -- zwarty toggle group
+   wzorowany na mockup v1 .toggle-group. Jasna informacja "który stan
+   teraz jest aktywny". */
+.wb-drawer-presets {
+    display: inline-flex;
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-md);
+    padding: 3px;
+    gap: 0;
+}
+.wb-drawer-preset {
+    padding: 6px var(--space-3);
+    border-radius: 5px;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    color: var(--color-neutral-700);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.wb-drawer-preset:hover { color: var(--color-neutral-900); }
+.wb-drawer-preset.active {
+    background: white;
+    color: var(--color-neutral-900);
+    box-shadow: var(--shadow-xs);
+}
+.wb-drawer-preset:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+.wb-drawer-preset svg { width: 12px; height: 12px; flex: none; }
+
+.wb-drawer-scroll {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+}
+
+/* ================================================================
+ * Tabela wyników — PR3 redesign.
+ * Wiersz 44 px wysokości, Geist Sans body, Geist Mono z tnum w cenach
+ * i powierzchniach, kolory z tokens. Wzór mocks/redesign-v1 .data
+ * ================================================================ */
+.wb-data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    background: white;
+}
+
+/* Nagłówki — uppercase secondary text, sticky, sortowalne */
+.wb-data-table thead th {
+    text-align: left;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-500);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-200);
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color var(--duration-fast) var(--ease);
+}
+.wb-data-table thead th:hover { color: var(--color-neutral-900); }
+.wb-data-table thead th.sorted-asc,
+.wb-data-table thead th.sorted-desc { color: var(--color-neutral-900); }
+
+/* Sortowanie — para SVG strzałek (góra+dół), aktywna w primary */
+.wb-data-table .sort-icon {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    vertical-align: middle;
+    line-height: 0;
+    width: 10px;
+    height: 16px;
+    gap: 1px;
+}
+.wb-data-table .sort-icon svg {
+    width: 10px;
+    height: 7px;
+    color: var(--color-neutral-400);
+    transition: color var(--duration-fast) var(--ease);
+}
+.wb-data-table thead th:hover .sort-icon svg { color: var(--color-neutral-700); }
+.wb-data-table thead th.sorted-asc .sort-icon svg.up { color: var(--color-primary-700); }
+.wb-data-table thead th.sorted-asc .sort-icon svg.down { color: var(--color-neutral-300); }
+.wb-data-table thead th.sorted-desc .sort-icon svg.up { color: var(--color-neutral-300); }
+.wb-data-table thead th.sorted-desc .sort-icon svg.down { color: var(--color-primary-700); }
+
+/* Wiersze — 44 px, primary color, hover subtle, selected amber, active belka */
+.wb-data-table tbody td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-100);
+    color: var(--color-neutral-900);
+    height: var(--row-h);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.wb-data-table tbody tr {
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease);
+}
+.wb-data-table tbody tr:hover { background: var(--color-neutral-50); }
+.wb-data-table tbody tr.selected { background: var(--color-accent-50); }
+.wb-data-table tbody tr.selected:hover { background: var(--color-accent-100); }
+.wb-data-table tbody tr.active {
+    background: var(--color-primary-50);
+    box-shadow: inset 3px 0 0 var(--color-primary-700);
+}
+.wb-data-table tbody tr.selected.active {
+    background: var(--color-accent-50);
+    box-shadow: inset 3px 0 0 var(--color-primary-700);
+}
+
+/* Custom checkbox "do koszyka" -- 18 px, primary check */
+.wb-data-table tbody td input[type="checkbox"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--color-neutral-300);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease);
+    position: relative;
+    vertical-align: middle;
+    margin: 0;
+    background: white;
+}
+.wb-data-table tbody td input[type="checkbox"]:hover { border-color: var(--color-primary-500); }
+.wb-data-table tbody td input[type="checkbox"]:checked {
+    background: var(--color-primary-700);
+    border-color: var(--color-primary-700);
+}
+.wb-data-table tbody td input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'><path d='M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 1 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'/></svg>");
+    background-size: 14px;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+.wb-data-table tbody td input[type="checkbox"]:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+
+/* Komórki numeryczne — Geist Mono z tnum */
+.wb-data-table .num {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--weight-medium);
+}
+.wb-data-table td.cell-error {
+    color: var(--color-danger-500);
+    font-weight: var(--weight-semibold);
+}
+
+/* Badge typu nieruchomości w ostatniej kolumnie - 4 warianty kolorystyczne */
+.wb-badge-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    border: 1px solid;
+    white-space: nowrap;
+}
+.wb-badge-type .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.wb-badge-type.t-lokal {
+    color: #166534;
+    border-color: #86EFAC;
+    background: #F0FDF4;
+}
+.wb-badge-type.t-lokal .dot { background: var(--color-type-lokal); }
+.wb-badge-type.t-grunt-zab {
+    color: #075985;
+    border-color: #7DD3FC;
+    background: #F0F9FF;
+}
+.wb-badge-type.t-grunt-zab .dot { background: var(--color-type-grunt-zab); }
+.wb-badge-type.t-grunt-niezab {
+    color: #1E40AF;
+    border-color: #93C5FD;
+    background: #EFF6FF;
+}
+.wb-badge-type.t-grunt-niezab .dot { background: var(--color-type-grunt-niezab); }
+.wb-badge-type.t-budynek {
+    color: #9A3412;
+    border-color: #FDBA74;
+    background: #FFF7ED;
+}
+.wb-badge-type.t-budynek .dot { background: var(--color-type-budynek); }
+.wb-badge-type.t-inne {
+    color: var(--color-neutral-700);
+    border-color: var(--color-neutral-300);
+    background: var(--color-neutral-100);
+}
+.wb-badge-type.t-inne .dot { background: var(--color-type-inne); }
+
+/* Komórka focus -> button SVG target z hover amber.
+   Button rozciągnięty na większy hit-area (40x40 zamiast 32) żeby
+   amber hover był łatwiej dostępny myszą; ikona dalej 16x16.
+   Hover dwustopniowy: tła + border + zmiana koloru + lekki scale. */
+.wb-data-table .wb-col-focus {
+    width: 48px;
+    text-align: center;
+    padding: var(--space-1);
+    line-height: 0;
+}
+.wb-focus-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-primary-500);
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-grid;
+    place-items: center;
+    transition: all var(--duration-fast) var(--ease);
+    opacity: 0.65;
+}
+/* Wiersz hover: focus button ujawnia się (z opacity 0.65 -> 1) -- afford
+   że "ten wiersz może być pokazany na mapie" */
+.wb-data-table tbody tr:hover .wb-focus-btn {
+    opacity: 1;
+    color: var(--color-primary-700);
+}
+.wb-focus-btn:hover {
+    background: var(--color-accent-100) !important;
+    border-color: var(--color-accent-500);
+    color: var(--color-accent-700) !important;
+    opacity: 1 !important;
+    transform: scale(1.05);
+}
+.wb-focus-btn:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 2px;
+    opacity: 1;
+}
+.wb-focus-btn svg { width: 18px; height: 18px; display: block; }
+/* Badge VAT% przy cenie transakcji -- mały, dyskretny. Pokazuje stawkę
+   z GML (pole kwotaPodatkuVAT bywa stawką 0/8/23, nie kwotą). */
+.wb-vat-badge {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.05rem 0.4rem;
+    background: var(--color-primary-50);
+    color: var(--primary);
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    vertical-align: middle;
+}
+.wb-data-table td.col-note { text-align: center; width: 2rem; }
+.wb-data-table td.col-note .has-note { color: var(--primary); }
+.wb-data-table td.col-note .no-note { color: #cbd5e1; font-weight: 700; opacity: 0.6; }
+
+/* PR3 redesign: usunięto stary `.wb-col-focus` z font-size 1.2rem +
+   grayscale filter + scale 1.2 hover (style do emoji 🎯).
+   Dziś komórka focus zawiera <button class="wb-focus-btn"> z SVG --
+   styl jest zdefiniowany wyżej obok .wb-data-table .wb-col-focus.
+
+   PR3 redesign: usunięto stary `.wb-data-table th .wb-sort` (tekstowe
+   ↕/▲/▼ w span) -- zastąpione przez SVG `.sort-icon` w <th> z klasami
+   sorted-asc/sorted-desc na <th>. */
+
+/* Wskaźnik rozwinięcia ▸/▾ obok daty -- wyraźny afford, żeby user
+   widział że to klikalne. Powiększone + pogrubione + primary color. */
+.wb-data-table td .wb-expand-ind {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-right: 0.4rem;
+    border-radius: var(--radius-sm);
+    color: var(--color-primary-700);
+    background: var(--color-primary-50);
+    user-select: none;
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), background 120ms ease;
+    vertical-align: middle;
+}
+.wb-data-table td .wb-expand-ind svg {
+    width: 12px;
+    height: 12px;
+    display: block;
+}
+.wb-data-table tbody tr:hover .wb-expand-ind {
+    background: var(--color-primary-100);
+}
+.wb-data-table td .wb-expand-ind.is-open {
+    transform: rotate(90deg);
+    background: var(--color-primary-700);
+    color: white;
+}
+.wb-data-table tbody tr.expanded > td:first-child {
+    box-shadow: inset 4px 0 0 var(--primary);
+}
+
+/* Krok 2: badge "geom_source" -- pokazuje że lokalizacja działki/budynku/lokalu
+   pochodzi z innego źródła niż RCN GML (operator nie wpisał geometrii). */
+.wb-geom-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: var(--weight-semibold);
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    margin-left: 6px;
+    white-space: nowrap;
+    line-height: 1.4;
+    vertical-align: middle;
+}
+.wb-geom-egib {
+    background: var(--color-accent-50);
+    color: var(--color-accent-700);
+    border: 1px solid var(--color-accent-100);
+}
+.wb-geom-inherited {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-700);
+    border: 1px solid var(--color-neutral-200);
+}
+.wb-data-table tbody tr.expanded {
+    background: var(--color-primary-50);
+}
+.wb-data-table tbody tr.expanded:hover { background: #e0e7ff; }
+.wb-data-table tbody tr.expanded.selected { background: #fde68a; }
+
+/* Expanded-row -- silne wyodrębnienie wizualne: lewa belka primary,
+   jasne indigo tło, każda sekcja jako biała karta z ramką i cieniem */
+.wb-data-table tr.expanded-row > td {
+    background: var(--color-primary-50);
+    padding: 0.75rem 1rem 1rem 1.5rem;
+    border-top: 2px dashed #c7d2fe;
+    border-bottom: 2px solid #c7d2fe;
+    cursor: default;
+    box-shadow: inset 4px 0 0 var(--primary);
+}
+.wb-data-table tr.expanded-row:hover > td { background: var(--color-primary-50); }
+
+/* Faza 4 commit 5: redesign expanded-row -- 3 karty Działki/Budynki/Lokale w grid
+   + pasek meta dokumentu na dole. Wzór: mocks/redesign-v2-components.html sekcja 3. */
+.expand-content-inner {
+    padding: var(--space-4) var(--space-2) var(--space-2);
+}
+.expand-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+.expand-card {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.expand-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-neutral-50);
+    border-bottom: 1px solid var(--color-neutral-200);
+}
+.expand-card-title {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-900);
+}
+.expand-card-title .icon-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+}
+.expand-card-count {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-500);
+    padding: 2px var(--space-2);
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-full);
+    min-width: 24px;
+    text-align: center;
+}
+.expand-card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.expand-card-empty {
+    padding: var(--space-5) var(--space-4);
+    text-align: center;
+    color: var(--color-neutral-400);
+    font-size: var(--text-xs);
+    font-style: italic;
+}
+.expand-row-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: start;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-100);
+    font-size: var(--text-xs);
+}
+.expand-row-item:last-child { border-bottom: 0; }
+.expand-row-item:hover { background: var(--color-neutral-50); }
+.er-ident-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.er-ident-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+.er-ident {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-neutral-700);
+    background: transparent;
+    padding: 0;
+    word-break: break-all;
+}
+.er-sub {
+    font-size: 11px;
+    color: var(--color-neutral-500);
+    line-height: var(--line-normal);
+}
+.er-area, .er-price {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1;
+    color: var(--color-neutral-700);
+    white-space: nowrap;
+    text-align: right;
+    font-size: var(--text-xs);
+    align-self: center;
+}
+.er-price {
+    color: var(--color-neutral-900);
+    font-weight: var(--weight-medium);
+}
+
+/* Pasek meta -- key/value pary dokumentu (notariusz, rynek, strony, etc.) */
+.expand-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-5);
+    padding: var(--space-3) var(--space-4);
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+}
+.expand-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.expand-meta-item .key {
+    font-size: 10px;
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-neutral-500);
+}
+.expand-meta-item .val {
+    font-size: var(--text-xs);
+    color: var(--color-neutral-900);
+    line-height: var(--line-tight);
+}
+.expand-meta-item .val.mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1;
+}
+
+@media (max-width: 1100px) {
+    .expand-cards-grid { grid-template-columns: 1fr; }
+}
+
+.wb-data-table tr.expanded-row .details-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+.wb-data-table tr.expanded-row .details-section {
+    background: white;
+    border: 1px solid #c7d2fe;
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem 0.75rem;
+    box-shadow: 0 1px 3px rgba(31, 78, 121, 0.06);
+}
+.wb-data-table tr.expanded-row .details-section h4 {
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0 0 0.45rem;
+    padding: 0.1rem 0 0.15rem 0.5rem;
+    border-left: 3px solid var(--primary);
+    line-height: 1.4;
+}
+.wb-data-table tr.expanded-row .details-section h4 .muted {
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: 0.3rem;
+}
+.wb-data-table tr.expanded-row .details-section table.list {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+}
+.wb-data-table tr.expanded-row .details-section table.list th {
+    background: #f0f4ff;
+    color: var(--primary);
+    font-size: 0.72rem;
+    padding: 0.3rem 0.5rem;
+    font-weight: 600;
+    border-bottom: 1px solid #c7d2fe;
+}
+.wb-data-table tr.expanded-row .details-section table.list td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--color-primary-50);
+    background: white;
+}
+
+/* Inline note indicator w komórce Data (📝 / ＋) -- zastępuje osobną kolumnę.
+   Hover na nim otwiera popover z treścią notatki (lazy-load + cache). */
+.wb-data-table td .wb-note-ind {
+    display: inline-block;
+    margin-left: 0.5rem;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 120ms ease, opacity 120ms ease;
+    user-select: none;
+    vertical-align: middle;
+}
+.wb-data-table td .wb-note-ind.has-note {
+    opacity: 1;
+    filter: saturate(1.3);
+}
+.wb-data-table td .wb-note-ind.no-note {
+    opacity: 0.55;
+    color: var(--primary);
+    font-weight: 700;
+}
+.wb-data-table tr:hover td .wb-note-ind.no-note {
+    opacity: 0.95;
+}
+.wb-data-table td .wb-note-ind:hover {
+    transform: scale(1.3);
+    opacity: 1;
+}
+
+/* ================================================================
+ * Popover notatki — PR7 redesign.
+ * Hover na 📝/＋ w komorce Data tabeli wyznacza popover z renderowanym
+ * Markdown notatki (przez DOMPurify(marked.parse())). Smart positioning
+ * above/below w wbNoteShow(). Wzor mocks/redesign-v2-components.html sekcja 2.
+ * ================================================================ */
+.wb-note-popover {
+    position: fixed;
+    width: 340px;
+    max-width: calc(100vw - 20px);
+    /* max-height ustawiana inline przez wbNoteShow() na podstawie
+       dostepnego miejsca above/below wskaznika. */
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    z-index: var(--z-popover);
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    animation: popoverIn 200ms var(--ease);
+}
+@keyframes popoverIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.wb-note-popover.placement-above {
+    box-shadow: 0 -8px 24px rgba(28,25,23, 0.08), 0 -2px 8px rgba(28,25,23, 0.04);
+}
+
+.wb-np-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-neutral-50);
+    border-bottom: 1px solid var(--color-neutral-100);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.wb-np-title {
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-neutral-500);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.wb-np-close {
+    background: transparent;
+    border: 0;
+    color: var(--color-neutral-500);
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    display: grid;
+    place-items: center;
+    transition: all var(--duration-fast) var(--ease);
+    font-size: var(--text-md);
+    line-height: 1;
+}
+.wb-np-close:hover {
+    background: var(--color-neutral-200);
+    color: var(--color-neutral-900);
+}
+.wb-np-close:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+
+.wb-np-loading {
+    padding: var(--space-4);
+    color: var(--color-neutral-500);
+    font-size: var(--text-xs);
+}
+.wb-np-body {
+    padding: var(--space-4);
+    overflow-y: auto;
+    flex: 1;
+    min-height: 30px;
+    color: var(--color-neutral-900);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+}
+.wb-np-body.note-preview h1 {
+    font-size: var(--text-base);
+    margin: 0 0 var(--space-2);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-950);
+}
+.wb-np-body.note-preview h2 {
+    font-size: var(--text-sm);
+    color: var(--color-primary-700);
+    margin: var(--space-3) 0 var(--space-1);
+    font-weight: var(--weight-semibold);
+}
+.wb-np-body.note-preview h3 {
+    font-size: var(--text-sm);
+    margin: var(--space-2) 0 var(--space-1);
+    font-weight: var(--weight-semibold);
+}
+.wb-np-body.note-preview p { margin: 0 0 var(--space-2); }
+.wb-np-body.note-preview p:last-child { margin-bottom: 0; }
+.wb-np-body.note-preview ul,
+.wb-np-body.note-preview ol {
+    padding-left: var(--space-4);
+    margin: 0 0 var(--space-2);
+}
+.wb-np-body.note-preview li { margin: 2px 0; }
+.wb-np-body.note-preview code {
+    background: var(--color-neutral-100);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-primary-700);
+}
+.wb-np-body.note-preview hr {
+    margin: var(--space-3) 0;
+    border: 0;
+    border-top: 1px dashed var(--color-neutral-200);
+}
+.wb-np-body.note-preview strong {
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-950);
+}
+.wb-np-body.note-preview a {
+    color: var(--color-primary-700);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+.wb-np-body.note-preview a:hover { color: var(--color-primary-900); }
+.wb-np-body.note-preview blockquote {
+    border-left: 3px solid var(--color-primary-200);
+    padding-left: var(--space-3);
+    margin: var(--space-2) 0;
+    color: var(--color-neutral-700);
+    font-style: italic;
+}
+
+.wb-np-actions {
+    padding: var(--space-2);
+    background: white;
+    border-top: 1px solid var(--color-neutral-100);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    display: flex;
+    gap: var(--space-1);
+}
+.wb-np-actions .btn-primary,
+.wb-np-actions .btn-ghost {
+    flex: 1;
+    justify-content: center;
+}
+
+/* ================================================================
+ * Sidebar filtrów — PR4 redesign.
+ * Domyślnie zadokowany po prawej w gridzie .wb-canvas (380 px).
+ * Toggle collapse zwija do 48 px paska ze "spec" liczników aktywnych
+ * filtrów. Stan zapisany w localStorage. Na mobile (≤900 px) staje się
+ * overlayem (slide-over fallback) -- patrz .wb-canvas.is-mobile poniżej.
+ * ================================================================ */
+.wb-sidebar {
+    background: white;
+    border-left: 1px solid var(--color-neutral-200);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* z-index podniesiony powyżej Leaflet panes (1000-1100) i Leaflet
+       controls (1001) — sidebar musi być NAD mapą, inaczej mapa go zasłania.
+       Nadal poniżej modali (2000+). */
+    z-index: 1200;
+    font-family: var(--font-sans);
+    /* Pozycjonowanie absolute: top:0; right:0; bottom:0 + width
+       zdefiniowane przez .wb-canvas > .wb-sidebar (z transition) */
+}
+
+/* Header sidebaru */
+.wb-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-200);
+    flex: none;
+    background: white;
+    height: var(--toolbar-h);
+}
+.wb-sidebar-title {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    letter-spacing: -0.01em;
+    color: var(--color-neutral-900);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+.wb-sidebar-title .badge {
+    background: var(--color-primary-100);
+    color: var(--color-primary-700);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-feature-settings: "tnum";
+}
+
+/* Toggle collapse/expand button */
+.wb-sidebar-toggle {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    color: var(--color-neutral-500);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all var(--duration-fast) var(--ease);
+}
+.wb-sidebar-toggle:hover {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-900);
+}
+.wb-sidebar-toggle:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+.wb-sidebar-toggle svg { width: 18px; height: 18px; }
+
+/* Body — scrollowalna lista filtrów */
+.wb-sidebar-body {
+    padding: var(--space-6);
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+/* Footer sticky — Wyczyść / Zastosuj */
+.wb-sidebar-footer {
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--color-neutral-200);
+    display: flex;
+    gap: var(--space-3);
+    flex: none;
+    background: white;
+}
+.wb-sidebar-footer .btn-primary,
+.wb-sidebar-footer .btn-ghost { flex: 1; justify-content: center; }
+
+/* Sekcja filtrów — większy oddech, czysta hierarchia */
+.wb-filter-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+.wb-filter-section h3 {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-500);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0;
+}
+.wb-filter-section label {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--color-neutral-700);
+    display: block;
+    margin-bottom: 6px;
+    margin-top: 0;
+}
+.wb-filter-section select,
+.wb-filter-section input {
+    width: 100%;
+    height: var(--control-h);
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    background: white;
+    color: var(--color-neutral-900);
+    transition: all var(--duration-fast) var(--ease);
+}
+.wb-filter-section select[multiple],
+.wb-filter-section textarea {
+    height: auto;
+    padding: var(--space-2) var(--space-3);
+}
+.wb-filter-section input::placeholder { color: var(--color-neutral-400); }
+.wb-filter-section input:hover,
+.wb-filter-section select:hover { border-color: var(--color-neutral-400); }
+.wb-filter-section input:focus,
+.wb-filter-section select:focus {
+    outline: none;
+    border-color: var(--color-primary-500);
+    box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+.wb-row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+
+/* Stan COLLAPSED — sidebar 48 px szerokości, header pionowy z toggle */
+.wb-canvas.sidebar-collapsed .wb-sidebar { padding: 0; }
+.wb-canvas.sidebar-collapsed .wb-sidebar-header {
+    flex-direction: column;
+    height: auto;
+    padding: var(--space-3) 0;
+    gap: var(--space-2);
+    border-bottom: none;
+}
+.wb-canvas.sidebar-collapsed .wb-sidebar-title { display: none; }
+.wb-canvas.sidebar-collapsed .wb-sidebar-body,
+.wb-canvas.sidebar-collapsed .wb-sidebar-footer { display: none; }
+
+/* Pasek ikon aktywnych filtrów w stanie collapsed -- pokazuje liczbę
+   aktywnych filtrów jako badge na ikonie filter-icon */
+.wb-sidebar-collapsed-info {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding-top: var(--space-2);
+}
+.wb-canvas.sidebar-collapsed .wb-sidebar-collapsed-info { display: flex; }
+.wb-sidebar-active-count {
+    background: var(--color-primary-700);
+    color: white;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    min-width: 22px;
+    height: 22px;
+    border-radius: var(--radius-full);
+    padding: 0 6px;
+    display: grid;
+    place-items: center;
+    font-feature-settings: "tnum";
+}
+
+/* Mobile fallback (≤ 900 px) -- sidebar staje się fixed overlayem,
+   mapa i drawer odzyskują pełną szerokość. */
+@media (max-width: 900px) {
+    .wb-canvas > #map { right: 0; }
+    .wb-canvas > .wb-drawer { right: 0; }
+    .wb-canvas.sidebar-collapsed > #map { right: 0; }
+    .wb-canvas.sidebar-collapsed > .wb-drawer { right: 0; }
+    .wb-canvas > .wb-sidebar {
+        position: fixed;
+        top: var(--topbar-h);
+        right: 0;
+        bottom: 0;
+        width: 90vw;
+        max-width: 380px;
+        z-index: var(--z-modal);
+        transform: translateX(100%);
+        transition: transform var(--duration-base) var(--ease);
+        box-shadow: var(--shadow-lg);
+    }
+    .wb-canvas > .wb-sidebar.is-open { transform: translateX(0); }
+    .wb-canvas.sidebar-collapsed > .wb-sidebar { transform: translateX(100%); }
+}
+
+/* Koszyk "Moja kolekcja" — PR2 redesign. Białe tło + border, amber gdy items.
+   Wzór: mocks/redesign-v1-utilitarian-calmed.html .btn-cart */
+.wb-cart-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: white;
+    color: var(--color-neutral-900);
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-md);
+    padding: 0 var(--space-4) 0 var(--space-3);
+    height: var(--control-h);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    user-select: none;
+    box-shadow: var(--shadow-xs);
+    transition: all var(--duration-fast) var(--ease);
+}
+.wb-cart-toggle:hover {
+    background: var(--color-neutral-50);
+    border-color: var(--color-neutral-400);
+}
+.wb-cart-toggle.has-items {
+    border-color: var(--color-accent-500);
+    background: var(--color-accent-50);
+}
+.wb-cart-toggle:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+.wb-cart-toggle .wb-cart-icon {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    color: var(--color-neutral-700);
+    flex: none;
+}
+
+/* Modal koszyka -- szerszy i wyższy niż default modal, wewnętrzny scroll
+   na liście itemów (body); header i footer sticky. */
+/* ================================================================
+ * Modal koszyka "Twoja kolekcja" — PR6 redesign.
+ * Szerszy 720 px (z 520), siatka 3-kolumnowa per item (dane | cena | usun),
+ * notatka inline jako wieksza textarea, eksport jako jeden segment z
+ * extension labels. Wzor mocks/redesign-v2-components.html sekcja 1.
+ * ================================================================ */
+.modal.wb-cart-modal {
+    width: 720px;
+    max-width: 92vw;
+    max-height: 80vh;
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    background: white;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-sans);
+}
+.wb-cart-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--color-neutral-200);
+    background: white;
+    flex: none;
+}
+.wb-cart-modal-head h2 {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    letter-spacing: -0.01em;
+    color: var(--color-neutral-900);
+}
+.wb-cart-modal-head .count-badge {
+    background: var(--color-accent-100);
+    color: var(--color-accent-700);
+    padding: 2px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+}
+/* Badge "Limit X / 100" dla readonly -- przy zbliżaniu się do limitu (>=80%)
+   zmienia kolor na warn, przy osiągnięciu na danger. */
+.cart-limit-badge {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-700);
+    padding: 2px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    margin-left: 6px;
+}
+.cart-limit-badge.is-warn {
+    background: var(--color-accent-100);
+    color: var(--color-accent-700);
+}
+.cart-limit-badge.is-full {
+    background: var(--color-danger-100, #fecaca);
+    color: var(--color-danger-700, #b91c1c);
+}
+.wb-cart-modal-head .close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    color: var(--color-neutral-500);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all var(--duration-fast) var(--ease);
+}
+.wb-cart-modal-head .close-btn:hover {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-900);
+}
+.wb-cart-modal-head .close-btn:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+.wb-cart-modal-head .close-btn svg { width: 18px; height: 18px; }
+
+.wb-cart-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: var(--space-2);
+}
+.wb-cart-modal-body .wb-cart-list {
+    max-height: none;
+    overflow-y: visible;
+    border-bottom: 0;
+}
+.wb-cart-modal-footer {
+    padding: var(--space-4) var(--space-6);
+    border-top: 1px solid var(--color-neutral-200);
+    background: var(--color-neutral-50);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex: none;
+    flex-wrap: wrap;
+}
+.wb-cart-modal-footer .spacer { flex: 1; }
+
+/* Eksport jako segment grupowy XLSX | GPKG | CSV (zamiast 3 osobnych accent button) */
+.wb-cart-export-group {
+    display: inline-flex;
+    background: white;
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-md);
+    padding: 3px;
+    box-shadow: var(--shadow-xs);
+    gap: 0;
+}
+.wb-cart-export-btn {
+    padding: 6px var(--space-3);
+    border-radius: 5px;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--color-neutral-700);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.wb-cart-export-btn:hover:not(:disabled) {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-900);
+}
+.wb-cart-export-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.wb-cart-export-btn:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+.wb-cart-export-btn .ext {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--color-neutral-100);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    color: var(--color-neutral-700);
+    font-weight: var(--weight-semibold);
+    transition: all var(--duration-fast) var(--ease);
+}
+.wb-cart-export-btn:hover:not(:disabled) .ext {
+    background: var(--color-primary-50);
+    color: var(--color-primary-700);
+}
+[x-cloak] { display: none !important; }
+.wb-cart-count {
+    background: var(--color-accent-500);
+    color: var(--color-neutral-950);
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-xs);
+    min-width: 22px;
+    height: 22px;
+    border-radius: var(--radius-full);
+    padding: 0 8px;
+    display: grid;
+    place-items: center;
+}
+.wb-cart-chevron { font-size: 0.8rem; opacity: 0.9; }
+.wb-cart-list {
+    max-height: none;
+    overflow-y: visible;
+    border-bottom: 0;
+    padding: 0;
+}
+/* PR6: Siatka 3-kolumnowa per item: dane (1fr) | cena (110px) | usun (auto).
+   Notatka inline jako wieksza textarea pod danymi. */
+.wb-cart-item {
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-100);
+    display: grid;
+    grid-template-columns: 1fr 110px auto;
+    gap: var(--space-3);
+    align-items: start;
+    font-size: var(--text-sm);
+    transition: background var(--duration-fast) var(--ease);
+    border-radius: var(--radius-md);
+}
+.wb-cart-item:hover { background: var(--color-neutral-50); }
+.wb-cart-item:last-child { border-bottom: 0; }
+.wb-cart-row1 {
+    grid-column: 1;
+    display: block;
+    margin-bottom: var(--space-2);
+}
+.wb-cart-addr {
+    display: block;
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-900);
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wb-cart-meta {
+    display: block;
+    color: var(--color-neutral-500);
+    font-size: var(--text-xs);
+    margin-bottom: var(--space-3);
+    grid-column: 1;
+}
+/* Cena -- prawa kolumna (na ?? wb-cart-row1) */
+.wb-cart-price {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+    padding-top: 2px;
+}
+.wb-cart-price .price-main {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-base);
+    color: var(--color-neutral-900);
+    white-space: nowrap;
+    display: block;
+}
+.wb-cart-price .price-sub {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    color: var(--color-neutral-500);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+    margin-top: 2px;
+    display: block;
+}
+.wb-cart-remove {
+    grid-column: 3;
+    grid-row: 1;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    background: transparent;
+    color: var(--color-neutral-400);
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    display: grid;
+    place-items: center;
+    transition: all var(--duration-fast) var(--ease);
+    align-self: start;
+}
+.wb-cart-remove:hover {
+    background: var(--color-danger-50);
+    color: var(--color-danger-500);
+}
+.wb-cart-remove:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+.wb-cart-remove svg { width: 16px; height: 16px; }
+.wb-cart-note {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 56px;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    color: var(--color-neutral-900);
+    background: white;
+    line-height: 1.45;
+    resize: vertical;
+    transition: all var(--duration-fast) var(--ease);
+}
+.wb-cart-note::placeholder { color: var(--color-neutral-400); }
+.wb-cart-note:focus {
+    outline: none;
+    border-color: var(--color-primary-500);
+    box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+.wb-cart-empty {
+    padding: var(--space-12) var(--space-4);
+    text-align: center;
+    color: var(--color-neutral-500);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+}
+
+/* PR6 fix Wariant A: button "Notatka transakcji" zamiast textarea inline.
+   Otwiera istniejacy modal "note" (ten sam co w tabeli) - jedna prawda. */
+.wb-cart-note-btn {
+    grid-column: 1 / -1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px var(--space-3);
+    border-radius: var(--radius-md);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease);
+    border: 1px solid transparent;
+    text-align: left;
+    width: fit-content;
+}
+.wb-cart-note-btn.has-note {
+    background: var(--color-primary-50);
+    color: var(--color-primary-700);
+    border-color: var(--color-primary-200);
+}
+.wb-cart-note-btn.has-note:hover {
+    background: var(--color-primary-100);
+}
+.wb-cart-note-btn.no-note {
+    background: transparent;
+    color: var(--color-neutral-500);
+    border: 1px dashed var(--color-neutral-300);
+}
+.wb-cart-note-btn.no-note:hover {
+    background: var(--color-primary-50);
+    border-color: var(--color-primary-500);
+    border-style: solid;
+    color: var(--color-primary-700);
+}
+.wb-cart-note-btn:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+}
+
+/* PR6 fix: pole "Komentarz do tego eksportu" w stopce modala koszyka */
+.wb-cart-export-comment {
+    padding: var(--space-3) var(--space-6);
+    border-top: 1px solid var(--color-neutral-200);
+    background: var(--color-neutral-50);
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.wb-cart-export-comment label {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--color-neutral-700);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+.wb-cart-export-comment label .muted {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: var(--weight-regular);
+    color: var(--color-neutral-500);
+    font-size: var(--text-xs);
+}
+.wb-cart-export-comment textarea {
+    width: 100%;
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-neutral-900);
+    background: white;
+    line-height: 1.45;
+    resize: vertical;
+    transition: all var(--duration-fast) var(--ease);
+    min-height: 50px;
+}
+.wb-cart-export-comment textarea::placeholder { color: var(--color-neutral-400); font-style: italic; }
+.wb-cart-export-comment textarea:focus {
+    outline: none;
+    border-color: var(--color-primary-500);
+    box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+.wb-cart-footer {
+    padding: 0.55rem 0.75rem;
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    background: #fafbfc;
+    align-items: center;
+}
+.wb-cart-export { flex: 1; justify-content: center; }
+
+/* Reuse btn-accent dla koszyka (export XLSX/GPKG) */
+.btn-accent {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    background: var(--accent);
+    color: #4a2e10;
+    transition: background-color 120ms ease;
+    white-space: nowrap;
+}
+.btn-accent:hover:not(:disabled) { background: #f5c59e; }
+.btn-accent:disabled { opacity: 0.5; cursor: not-allowed; }
+
+
+/* =====================================================================
+   Workspace lock overlay (templates/workspace.html)
+   Pokazuje się gdy workspace.busy.active === true (poll /busy co 3s).
+   Blokuje interakcje z mapą/tabelą podczas import / enrich-egib /
+   compute-flags / geocoding -- chroni przed segfault Fiona+pyproj
+   i niespójnymi snapshotami tx_cache.
+   ===================================================================== */
+.ws-lock-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9998;
+    padding: 1rem;
+}
+.ws-lock-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2.5rem 2rem 2rem;
+    max-width: 520px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+.ws-lock-card h2 {
+    margin: 0.5rem 0;
+    font-size: 1.4rem;
+    color: var(--text);
+}
+.ws-lock-card p { margin: 0.5rem 0; }
+.ws-lock-card p:last-child { margin-top: 1.5rem; display: flex; gap: 0.6rem; justify-content: center; }
+.ws-lock-card .btn-primary {
+    background: var(--primary);
+    color: white;
+    padding: 0.5rem 1.1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+}
+.ws-lock-card .btn-primary:hover { background: var(--primary-hover); }
+.ws-lock-card .btn-ghost {
+    background: white;
+    color: var(--text);
+    padding: 0.5rem 1.1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    border: 1px solid var(--border);
+}
+.ws-lock-card .btn-ghost:hover { background: #f3f4f6; }
+
+.ws-lock-spinner {
+    width: 56px;
+    height: 56px;
+    border: 5px solid #e2e8f0;
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    margin: 0 auto 0.5rem;
+    animation: ws-lock-spin 1s linear infinite;
+}
+@keyframes ws-lock-spin {
+    to { transform: rotate(360deg); }
+}
+
+
+/* =====================================================================
+   Workspace Settings page (templates/workspace_settings.html)
+   ===================================================================== */
+.ws-settings {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+    width: 100%;
+}
+.ws-settings-title {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+    color: var(--text);
+}
+.ws-settings-sub { font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+.ws-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+}
+.ws-card-head {
+    padding: 1rem 1.25rem 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+.ws-card-head h2 { font-size: 1.05rem; font-weight: 600; margin: 0; color: var(--text); }
+.ws-card-head p { font-size: 0.85rem; margin: 0.25rem 0 0; }
+.ws-card-body { padding: 1rem 1.25rem; }
+.ws-card-foot {
+    padding: 0.75rem 1.25rem;
+    background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+.ws-card-danger { border-color: #fecaca; }
+.ws-card-danger .ws-card-head { background: #fef2f2; border-bottom-color: #fecaca; }
+.ws-card-danger .ws-card-head h2 { color: var(--danger, #c0392b); }
+
+.ws-field {
+    display: block;
+    margin-bottom: 1rem;
+}
+.ws-field > span {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    color: var(--text);
+}
+.ws-field input[type="text"],
+.ws-field textarea {
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+.ws-field input:disabled,
+.ws-field textarea:disabled {
+    background: #f8fafc;
+    color: #64748b;
+    cursor: not-allowed;
+}
+.ws-field small { font-size: 0.75rem; }
+
+.ws-layers-table,
+.ws-imports-table,
+.ws-enh-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+.ws-layers-table th, .ws-layers-table td,
+.ws-imports-table th, .ws-imports-table td,
+.ws-enh-history-table th, .ws-enh-history-table td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+    vertical-align: middle;
+}
+.ws-layers-table th, .ws-imports-table th, .ws-enh-history-table th {
+    font-weight: 500;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.ws-empty { padding: 1rem; font-style: italic; }
+.ws-layer-add {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #e2e8f0;
+    flex-wrap: wrap;
+}
+.ws-layer-add input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+}
+
+/* Enhancements */
+.ws-enh {
+    padding: 1rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+.ws-enh:last-child { border-bottom: none; }
+.ws-enh-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+.ws-enh-head h3 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--text); }
+.ws-enh-status {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+.ws-enh-status.is-running { background: #dbeafe; color: #1e40af; }
+.ws-enh-status.is-success { background: #dcfce7; color: #166534; }
+.ws-enh-status.is-failed  { background: #fee2e2; color: #991b1b; }
+.ws-enh-status.is-never, .ws-enh-status:empty { background: #f1f5f9; color: #64748b; }
+.ws-enh-meta { margin-top: 0.4rem; }
+.ws-enh-meta code {
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.78rem;
+}
+.ws-enh-error { color: var(--danger, #c0392b); }
+.ws-enh-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+}
+.ws-enh-history { margin-top: 0.75rem; }
+.ws-enh-diag { word-break: break-all; }
+
+/* Imports table */
+.ws-import-status {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+.ws-import-status.is-processing { background: #dbeafe; color: #1e40af; }
+.ws-import-status.is-success    { background: #dcfce7; color: #166534; }
+.ws-import-status.is-failed     { background: #fee2e2; color: #991b1b; }
+.ws-import-status.is-queued     { background: #fef3c7; color: #92400e; }
+
+/* Toast */
+.ws-settings-toast {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    background: #166534;
+    color: white;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    z-index: 9999;
+    font-size: 0.9rem;
+    max-width: 420px;
+}
+.ws-settings-toast.is-error { background: #991b1b; }
+
+/* --- Ostrzeżenie o wersji testowej (RCN_TEST_WARNING=1) -------------------- */
+.modal.rcn-test-warning {
+    width: 520px;
+    border-top: 4px solid var(--color-danger-500, #DC2626);
+    gap: 0.85rem;
+}
+.rcn-tw-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #7f1d1d;
+}
+.rcn-tw-body { display: flex; flex-direction: column; gap: 0.6rem; }
+.rcn-tw-body p { margin: 0; font-size: 0.9rem; line-height: 1.5; }
+.rcn-tw-warn {
+    background: var(--color-danger-50, #FEF2F2);
+    border-left: 3px solid var(--color-danger-500, #DC2626);
+    padding: 0.6rem 0.75rem;
+    border-radius: 0 4px 4px 0;
+}
+.rcn-tw-note { font-size: 0.85rem; color: var(--muted, #64748b); }
+.rcn-tw-note a { color: var(--primary, #1d4ed8); text-decoration: underline; }
+.rcn-tw-btn {
+    align-self: flex-end;
+    background: var(--color-danger-500, #DC2626);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.55rem 1.1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+.rcn-tw-btn:hover { background: #b91c1c; }
+.rcn-tw-btn:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+
+/* --- Badge BETA (is_beta z app/version.py) --------------------------------- */
+.rcn-beta-badge {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: #f59e0b;
+    color: #451a03;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    vertical-align: middle;
+    cursor: help;
+}

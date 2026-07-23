@@ -1,0 +1,123 @@
+/* ============================================================
+   Modern Reset + Base Typography
+   Bazuje na Josh Comeau's modern reset (2023) + custom tweaks dla RCN.
+
+   Wprowadzone w PR1 redesignu. Po Tailwind cleanup w PR2 ten plik
+   będzie głównym źródłem reset-u (dziś Tailwind preflight robi część
+   pracy równolegle — celowe duplikowanie do czasu cleanup).
+============================================================ */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+* {
+    margin: 0;
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    line-height: var(--line-normal);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    color: var(--color-neutral-900);
+    background: var(--color-neutral-50);
+    /* Geist features: stylistic alternatives + characterful variants */
+    font-feature-settings: "ss01", "cv01";
+}
+
+img, picture, video, canvas, svg {
+    display: block;
+    max-width: 100%;
+}
+
+/* Leaflet uzywa img/svg z explicit wymiarami inline (markery, tile, controls).
+   Modern reset z `display: block; max-width: 100%` psuje ich rendering --
+   markery klastrowe staja sie niewidoczne (max-width 100% w containerze 0 px),
+   linie spidera widac ale konce sa puste. Revert -- niech Leaflet steruje
+   sam swoim wlasnym CSS. */
+.leaflet-container img,
+.leaflet-container svg,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-popup-content img,
+.leaflet-control img,
+.leaflet-control svg {
+    display: revert;
+    max-width: none;
+}
+
+input, button, textarea, select {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+    overflow-wrap: break-word;
+}
+
+#root, #__next {
+    isolation: isolate;
+}
+
+/* Liczby tabular wszędzie (tnum) — dla rzeczoznawcy ceny i powierzchnie
+   muszą się ustawiać w pionie. Geist Mono ma tnum domyślnie, ale w body
+   i tabelach też używamy tnum dla cyfr w sans. */
+.mono,
+.tabular {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+}
+
+/* Focus visible — globalne, łagodne, primary */
+:focus-visible {
+    outline: 3px solid var(--color-primary-200);
+    outline-offset: 1px;
+    border-radius: var(--radius-sm);
+}
+
+/* Selekcja — granat zamiast brzydkiej windowsowej */
+::selection {
+    background: var(--color-primary-100);
+    color: var(--color-primary-900);
+}
+
+/* Scrollbar (WebKit/Blink) — subtelny, nie odciąga uwagi */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--color-neutral-300);
+    border-radius: var(--radius-full);
+    border: 2px solid var(--color-neutral-50);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-neutral-400);
+}
+
+/* Reduced motion — szanujemy preferencje OS */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

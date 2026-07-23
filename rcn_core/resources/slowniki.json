@@ -1,0 +1,85 @@
+{
+  "RCN_RodzajTransakcjiType": {
+    "1": "wolnyRynek",
+    "2": "sprzedazBezprzetargowa",
+    "3": "sprzedazPrzetargowa",
+    "4": "sprzedazWPostepowaniuEgzekucyjnym",
+    "5": "sprzedazNaCelPubliczny",
+    "6": "sprzedazZBonifikata"
+  },
+  "RCN_RodzajRynkuType": {
+    "1": "rynekPierwotny",
+    "2": "rynekWtorny"
+  },
+  "RCN_RodzajPrawaType": {
+    "1": "wlasnoscNieruchomosciGruntowej",
+    "2": "uzytkowanieWieczyste",
+    "3": "wlasnoscLokaluWrazZPrawemZwiazanym",
+    "4": "wlasnoscBudynkuWrazZPrawemZwiazanym"
+  },
+  "RCN_StronaSprzedajacaKupujacaType": {
+    "1": "skarbPanstwa",
+    "2": "jednostkaSamorzaduTerytorialnego",
+    "3": "osobaFizyczna",
+    "4": "osobaPrawna"
+  },
+  "RCN_RodzajNieruchomosciType": {
+    "1": "nieruchomoscGruntowaNiezabudowana",
+    "2": "nieruchomoscGruntowaZabudowana",
+    "3": "nieruchomoscBudynkowa",
+    "4": "nieruchomoscLokalowa"
+  },
+  "RCN_PrzeznaczenieWMPZPType": {
+    "BP": "brakMPZPLubWZ",
+    "MN": "budownictwoMieszkanioweJednorodzinne",
+    "MW": "budownictwoMieszkanioweWielorodzinne",
+    "U": "terenZabudowyUslugowej",
+    "US": "terenSportuIRekreacji",
+    "UC": "terenRozmieszczeniaDuzychObiektowHandlowych",
+    "R": "terenRolniczy",
+    "RU": "terenObslugiProdukcjiWGospodarstwachRolnych",
+    "RM": "terenZabudowyZagrodowejGospodarstwRolnych",
+    "P": "terenObiektowProdukcyjnychSkladowIMagazynow",
+    "PG": "obszarITerenGorniczy",
+    "ZN": "terenZieleniObjetyFormaOchronyPrzyrody",
+    "ZL": "las",
+    "ZP": "terenZieleniUrzadzonej",
+    "ZD": "terenOgrodowDzialkowych",
+    "ZC": "cmentarz",
+    "WM": "terenWodPowierzchniowychMorskich",
+    "WS": "terenWodPowierzchniowychSrodladowych",
+    "KD": "terenDrogPublicznych",
+    "KDW": "terenDrogWewnetrznych",
+    "KW": "terenKomunikacjiWodnejSzlakWodny",
+    "TIT": "terenInfrastrukturyTechnicznej",
+    "INN": "innyNiewymieniony",
+    "WZ": "dezycjaWarunkiZabudowy"
+  },
+  "RCN_SposobUzytkowaniaType": {
+    "1": "gruntyRolne",
+    "2": "gruntyLesne",
+    "3": "gruntyZabudowaneIZurbanizowane",
+    "4": "terenyKomunikacyjne",
+    "5": "inne"
+  },
+  "RCN_RodzajBudynkuType": {
+    "101": "przemyslowy",
+    "102": "transportuILacznosci",
+    "103": "handlowoUslugowy",
+    "104": "zbiornikiSilosyMagazyny",
+    "105": "biurowy",
+    "106": "szpitale",
+    "107": "oswiatyISportu",
+    "108": "gospodarczy",
+    "109": "pozostaleNiemieszkalne",
+    "110": "mieszkalny"
+  },
+  "RCN_FunkcjaLokaluType": {
+    "1": "mieszkalna",
+    "2": "handlowoUslugowa",
+    "3": "biurowa",
+    "4": "produkcyjna",
+    "5": "garaz",
+    "6": "inna"
+  }
+}

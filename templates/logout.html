@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Wylogowano — RCN Workshop{% endblock %}
+
+{% block topnav %}
+<header class="bg-rcn-primary text-white shadow-sm">
+    <div class="flex items-center gap-4 px-4 py-3">
+        <span class="font-semibold tracking-tight text-lg">RCN Workshop</span>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="logout-wrap">
+    <div class="logout-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="logout-icon" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <h1>Wylogowano</h1>
+        <p>Sesja została zamknięta. Możesz bezpiecznie zostawić to okno otwarte
+        lub kliknąć poniżej żeby wrócić do strony głównej.</p>
+
+        <div class="logout-actions">
+            <a href="/" class="logout-btn-primary">Wróć do strony głównej</a>
+            <a href="/workspaces" class="logout-btn-secondary">Zaloguj jako inny użytkownik</a>
+        </div>
+
+        <p class="muted tiny logout-note">
+            <strong>Wskazówka:</strong> Aby ostatecznie wyczyścić zapamiętane hasło z przeglądarki,
+            zamknij i ponownie otwórz okno przeglądarki.
+        </p>
+    </div>
+</div>
+
+<script>
+// Wymuś czyszczenie cache basic auth w przeglądarce: fetch z explicit nieprawidłowym
+// Authorization header -> /api/me zwróci 401 -> Chrome/Edge/Firefox cache będzie nadpisany.
+// Ten trick jest znany jako "logout-by-401" -- nie wszystkie przeglądarki w pełni
+// czyszczą cache (Safari ma rygorystyczne zasady), ale działa dla większości.
+(async function clearBasicAuth() {
+    try {
+        await fetch('/api/me', {
+            method: 'GET',
+            credentials: 'omit',
+            cache: 'no-store',
+            headers: {
+                'Authorization': 'Basic ' + btoa('logout:' + Date.now()),
+            },
+        });
+    } catch (e) {
+        // Network error / 401 -- expected. Nic nie rób.
+    }
+})();
+</script>
+
+<style>
+.logout-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #eff4fb 100%);
+}
+.logout-card {
+    max-width: 480px;
+    width: 100%;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    box-shadow: 0 4px 16px rgba(30, 58, 138, 0.06);
+    text-align: center;
+}
+.logout-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 1rem;
+    color: #1f4e79;
+    background: #eff4fb;
+    border-radius: 12px;
+    padding: 12px;
+    box-sizing: border-box;
+}
+.logout-card h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1f4e79;
+    margin: 0 0 .5rem;
+}
+.logout-card > p {
+    color: #475569;
+    line-height: 1.6;
+    margin: 0 0 1.5rem;
+}
+.logout-actions {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    margin: 1.5rem 0 1rem;
+}
+.logout-btn-primary {
+    display: inline-block;
+    background: #1f4e79;
+    color: white;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+.logout-btn-primary:hover {
+    background: #18405f;
+    transform: translateY(-1px);
+}
+.logout-btn-secondary {
+    display: inline-block;
+    background: white;
+    color: #1f4e79;
+    padding: 9px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    text-decoration: none;
+    border: 1px solid #cbd5e1;
+    transition: all 0.15s ease;
+}
+.logout-btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #1f4e79;
+}
+.logout-note {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: .82rem;
+    line-height: 1.5;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,60 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env
+.env
+.env.local
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Dane rzeczoznawcy (per-workspace SQLite, notatki, uploads) — NIE commitować
+data/workspaces/
+data/layers/
+
+# Lokalne pliki robocze (SCP/SSH transfery, diagnostyka)
+_vps_bg.txt
+_vps_*.txt
+*.log
+uploads/
+
+# Lokalny scratch (rebuild log, repaired GML, cookies portalu z DevTools)
+# UWAGA: tmp/curl_details_*.txt zawiera cookies + CSRF tokeny — NIGDY nie commitować
+tmp/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Virtual envs
+.venv/
+venv/
+
+# Build artifacts
+dist/
+build/
+packaging/windows/Output/
+# Redystrybuowalny bootstrapper WebView2 (binarny, pobierany od MS; nie commitujemy
+# -- pobrać przed kompilacją instalatora i położyć obok RCN-Workshop.iss)
+packaging/windows/MicrosoftEdgeWebview2Setup.exe
+.coverage
+htmlcov/
+
+# Test fixtures (GML/zip są ciężkie + dane nieruchomości — NIE commitować)
+tests/fixtures/*.gml
+tests/fixtures/*.zip
+tests/_*
+_*.txt
+# Konfiguracja dystrybucji bety (prywatne adresy: ankieta itd.) -- dolaczana do
+# instalatora przy budowie, jak bootstrapper WebView2. NIE commitowac.
+packaging/windows/rcn.env

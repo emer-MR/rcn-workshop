@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zainstaluj uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Zależności
+        run: uv sync --extra dev
+
+      # Repo ma odziedziczone błędy lint -- ruff nie blokuje builda,
+      # ale wynik jest widoczny w logu (nowy kod nie powinien dokładać błędów).
+      - name: Ruff (informacyjnie)
+        run: uv run ruff check . || true
+
+      - name: Testy
+        # Testy wymagające lokalnych fixture GML same się skipują.
+        run: uv run pytest -q

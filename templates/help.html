@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}Instrukcja obsługi — RCN Workshop{% endblock %}
+
+{% block content %}
+<div class="help-wrap" x-data="{ slide: 1, total: 6 }" @keydown.window.arrow-right="slide < total && slide++" @keydown.window.arrow-left="slide > 1 && slide--">
+
+    <div class="help-progress">
+        <div>
+            <h1 class="help-title">Instrukcja obsługi</h1>
+            <span class="muted tiny">Krok-po-kroku z prawdziwymi widokami aplikacji.</span>
+        </div>
+        <div class="help-dots">
+            <template x-for="n in total" :key="n">
+                <button class="help-dot" :class="n === slide ? 'active' : ''" @click="slide = n" :aria-label="`Slajd ${n}`"></button>
+            </template>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 1: Lista workspace'ów -->
+    <section class="help-slide" x-show="slide === 1" x-cloak>
+        <div class="help-screenshot">
+            <img src="/static/img/screenshots/1.png" alt="Strona główna z listą workspace'ów">
+        </div>
+        <div class="help-text">
+            <div class="help-num">1</div>
+            <h2>Strona główna · wybór miasta</h2>
+            <p class="help-lead">Po zalogowaniu trafiasz do listy dostępnych miast (workspaces).</p>
+            <ul class="help-points">
+                <li><strong>Hero w nagłówku</strong> — szybkie skróty: „Otwórz Warszawa" (default) i opcjonalnie „+ Dodaj workspace" (admin).</li>
+                <li><strong>4 KPI tile</strong> — łączne statystyki wszystkich miast: 773 318 transakcji, 1 133 046 działek, 799 028 budynków, 577 013 lokali.</li>
+                <li><strong>Karty workspace</strong> z mini-mapą i statystykami per miasto (Warszawa 585 900 transakcji, Łódź 161 023, Bełchatów 26 395). Klik „Otwórz" wchodzi do wybranego workspace.</li>
+                <li><strong>Topbar</strong> — nawigacja Workspaces / API / Metrics + badge zalogowanego użytkownika po prawej (admin / test).</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 2: Tabela transakcji -->
+    <section class="help-slide" x-show="slide === 2" x-cloak>
+        <div class="help-screenshot">
+            <img src="/static/img/screenshots/2.png" alt="Tabela transakcji Warszawa">
+        </div>
+        <div class="help-text">
+            <div class="help-num">2</div>
+            <h2>Tabela transakcji</h2>
+            <p class="help-lead">Domyślny widok workspace'a — pełnoekranowa tabela z filtrami per-kolumna w nagłówku.</p>
+            <ul class="help-points">
+                <li><strong>Pasek topbar</strong>: nazwa miasta + statystyki + toggle <code>[Mapa | Tabela]</code> + button „Zmień workspace" + Kolekcja + Admin.</li>
+                <li><strong>Licznik</strong> „585 900 transakcji w filtrze" + paginator (po prawej).</li>
+                <li><strong>Filtry per-kolumna</strong> w nagłówku: data od/do, adres LIKE, obręb, nr działki, powierzchnia od/do, cena od/do, cena/m² od/do, dropdown typu nieruchomości.</li>
+                <li><strong>Pomarańczowy „Pokaż filtry"</strong> po prawej — rozwija sidebar z dodatkowymi filtrami (rynek, rodzaj transakcji, lokalizacja).</li>
+                <li><strong>Pierwsza kolumna</strong> — przyciski 🎯 (modal mapy) i ▸ (rozwiń szczegóły).</li>
+                <li><strong>Badge ⚠</strong> obok ceny — flag jakości danych (multi-akt, ekstremalna cena/m² itp.). Hover = tooltip z opisem.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 3: Rozwinięcie wiersza + szczegóły transakcji -->
+    <section class="help-slide" x-show="slide === 3" x-cloak>
+        <div class="help-screenshot">
+            <img src="/static/img/screenshots/3.png" alt="Rozwinięty wiersz transakcji ze szczegółami obiektów">
+        </div>
+        <div class="help-text">
+            <div class="help-num">3</div>
+            <h2>Szczegóły transakcji · 3 karty obiektów</h2>
+            <p class="help-lead">Klik strzałki ▸ przy dacie rozwija pełne dane transakcji. Widzisz wszystkie obiekty wchodzące w jej skład.</p>
+            <ul class="help-points">
+                <li><strong>3 karty</strong> w siatce: 🟦 Działki, 🟨 Budynki, 🟢 Lokale. Każda z licznikiem.</li>
+                <li><strong>Wiersz obiektu</strong> — identyfikator EGIB (klikalny do wszystkich transakcji tego samego obiektu), adres, powierzchnia, indywidualna cena (jeśli operator wpisał).</li>
+                <li><strong>Pasek meta</strong> na dole: Dokument (sygnatura aktu), Notariusz, Rynek (Pierwotny/Wtórny), Rodzaj transakcji, Strony (osoba prawna/fizyczna), ID transakcji.</li>
+                <li><strong>Wiki-link 🔗</strong> obok identyfikatora — klik filtruje tabelę do wszystkich transakcji tego konkretnego obiektu w czasie. Idealne do śledzenia historii cen.</li>
+                <li><strong>Badge „📐 z EGIB"</strong> przy obiektach — geometria uzupełniona z lokalnej bazy EGIB (gdy operator nie wpisał w GML).</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 4: Modal mapy + Sąsiedzi w X m -->
+    <section class="help-slide" x-show="slide === 4" x-cloak>
+        <div class="help-screenshot">
+            <img src="/static/img/screenshots/4.png" alt="Modal mapy z focused markerem i sąsiadami">
+        </div>
+        <div class="help-text">
+            <div class="help-num">4</div>
+            <h2>🎯 Pokaż na mapie · sąsiedzi w X metrów</h2>
+            <p class="help-lead">Klik 🎯 w wierszu tabeli otwiera modal mapy z fokusem na transakcji + sąsiadami w okolicy.</p>
+            <ul class="help-points">
+                <li><strong>Focused marker</strong> (ciemniejsza obwódka, badge „⭐ FOCUSED" w popup) — wyceniana transakcja.</li>
+                <li><strong>Markery sąsiadów</strong> w okolicy — kolorowane per typ (zielone = lokale, pomarańczowe = budynki, niebieskie = grunty). Klastry pokazują liczbę gdy markery się nakładają.</li>
+                <li><strong>Popup transakcji</strong>: data, adres, obręb, badge typu, cena, cena/m².</li>
+                <li><strong>Akcje w popup</strong>: <code>+ Do kolekcji</code> (dodaje do koszyka eksportu), <code>W tabeli</code> (skok do wiersza tabeli pod modalem).</li>
+                <li><strong>Sąsiedzi w: 50m / 100m / 250m / 500m</strong> — klucz wyceny porównawczej. Klik filtruje tabelę pod modalem do transakcji w promieniu od wycenianej.</li>
+                <li><strong>Linki zewnętrzne</strong>: Street View (Google Maps panorama), Geoportal (mapy.geoportal.gov.pl).</li>
+                <li><strong>Panel „Warstwy"</strong> w prawym górnym rogu — toggle warstw GPKG (Działki RCN, Budynki RCN), warstw EGIB.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 5: Koszyk + Eksport -->
+    <section class="help-slide" x-show="slide === 5" x-cloak>
+        <div class="help-screenshot">
+            <img src="/static/img/screenshots/5.png" alt="Modal koszyka z eksportem">
+        </div>
+        <div class="help-text">
+            <div class="help-num">5</div>
+            <h2>Koszyk (Twoja kolekcja) · eksport XLSX</h2>
+            <p class="help-lead">Zaznaczone transakcje (☑ checkbox per wiersz lub <code>+ Do kolekcji</code> w popup mapy) zbierają się w koszyku do eksportu.</p>
+            <ul class="help-points">
+                <li><strong>Lista w koszyku</strong>: adres, data, typ (Lokal/Grunt zab./...), powierzchnia + cena + cena/m². Ikona kosza usuwa pojedynczy wpis.</li>
+                <li><strong>Komentarz do eksportu</strong> — opcjonalne pole tekstowe (np. „Zestawienie dla wyceny lokalu Piotrkowska 142, klient Kowalski, 2026-04-27"). Trafia do arkusza „Podsumowanie" w XLSX.</li>
+                <li><strong>3 formaty eksportu</strong>: XLSX (6 arkuszy: Podsumowanie / Raport zbiorczy / Transakcje / Działki / Budynki / Lokale), GPKG (geo-package do QGIS), CSV (do dalszego pipeline).</li>
+                <li><strong>Σ Analiza statystyczna</strong> — modal z wykresami i statystykami (cena/m², trend kwartalny, scatter plot).</li>
+                <li><strong>Limit dla testowego konta</strong>: 100 transakcji w koszyku. Admin bez limitu. Badge ostrzeżenia gdy w koszyku są transakcje z flagami jakości.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 6: Filtry zaawansowane + sidebar -->
+    <section class="help-slide" x-show="slide === 6" x-cloak>
+        <div class="help-screenshot">
+            <img src="/static/img/screenshots/6.png" alt="Filtry sidebar + multi-zaznaczenie wierszy">
+        </div>
+        <div class="help-text">
+            <div class="help-num">6</div>
+            <h2>Sidebar filtrów + zaznaczanie do koszyka</h2>
+            <p class="help-lead">Przycisk „Pokaż filtry" / „Ukryj filtry" rozwija boczny panel z bardziej szczegółowymi filtrami. Pasek aktywnych filtrów na górze pokazuje co jest aktualnie zastosowane.</p>
+            <ul class="help-points">
+                <li><strong>Aktywne filtry</strong>: chip „Adres: ulica Stępińska 45" — klik × usuwa filtr.</li>
+                <li><strong>Wynik</strong>: 33 transakcji w filtrze, w tym 3 zaznaczone (☑).</li>
+                <li><strong>Sidebar po prawej</strong> — sekcje:
+                    <ul>
+                        <li><em>Rynek / Typ</em> — multi-select Pierwotny/Wtórny + rodzaj transakcji (sprzedaż, sprzedaż egzekucyjna, etc.)</li>
+                        <li><em>Rodzaj nieruchomości</em> — Budynkowa, Gruntowa Niezabudowana, Gruntowa Zabudowana, Lokalowa</li>
+                        <li><em>Lokalizacja</em> — Obręb (multi-select), Miejscowość, TERYT gminy</li>
+                    </ul>
+                </li>
+                <li><strong>Buttony „Wyczyść" / „Zastosuj"</strong> na dole sidebara — jednoczesne aplikowanie wielu filtrów.</li>
+                <li><strong>Multi-checkbox</strong> w wierszach — ☑ każdy wiersz dodaje do koszyka. Pierwszy wiersz pokazany jest rozwinięty z 3 kartami obiektów.</li>
+                <li><strong>Wskazówka pro</strong>: wybierz adres → multi-zaznacz historię → modal koszyka → analiza statystyczna trendu cen w czasie dla tej lokalizacji.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Navigation -->
+    <div class="help-nav">
+        <button class="help-nav-btn" @click="slide > 1 && slide--" :disabled="slide === 1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Poprzedni
+        </button>
+        <span class="muted" x-text="`Slajd ${slide} z ${total}`"></span>
+        <button class="help-nav-btn" @click="slide < total && slide++" :disabled="slide === total">
+            Następny
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+    </div>
+
+    <div class="help-footer-actions">
+        <a href="/workspaces" class="help-btn-primary">→ Przejdź do aplikacji</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.help-wrap {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 1rem 1rem 2rem;
+    flex: 1;
+}
+.help-progress {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+.help-title { font-size: 1.5rem; font-weight: 700; color: #1f4e79; margin: 0; letter-spacing: -0.01em; }
+.help-progress > div:first-child > .muted { display: block; margin-top: 2px; }
+.help-dots {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+.help-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    border: none; cursor: pointer;
+    transition: all .15s;
+}
+.help-dot.active { background: #1f4e79; transform: scale(1.3); }
+.help-dot:hover:not(.active) { background: #94a3b8; }
+
+.help-slide {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 2rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 16px rgba(30, 58, 138, 0.06);
+    align-items: start;
+    min-height: 540px;
+}
+@media (max-width: 980px) {
+    .help-slide { grid-template-columns: 1fr; }
+}
+
+.help-screenshot {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.5rem;
+    overflow: hidden;
+    position: relative;
+}
+.help-screenshot img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    cursor: zoom-in;
+    transition: transform 0.2s ease;
+}
+.help-screenshot img:hover {
+    transform: scale(1.02);
+}
+
+.help-text { position: relative; padding: 0.5rem 0.5rem 0.5rem 0; }
+.help-num {
+    position: absolute;
+    top: -.5rem; right: 0;
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, #1f4e79, #2D5DA8);
+    color: white;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; font-weight: 700;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+}
+.help-text h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1f4e79;
+    margin: 0 3.5rem 0.5rem 0;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+}
+.help-lead {
+    font-size: 0.95rem;
+    color: #475569;
+    line-height: 1.55;
+    margin: 0 0 1rem;
+}
+.help-points {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: #334155;
+    line-height: 1.7;
+    font-size: 0.88rem;
+}
+.help-points li {
+    margin-bottom: 0.5rem;
+}
+.help-points ul {
+    margin: 0.4rem 0 0.5rem;
+    padding-left: 1.2rem;
+}
+.help-points ul li { margin-bottom: 0.2rem; font-size: 0.85rem; color: #475569; }
+.help-points strong { color: #1e293b; }
+.help-points em { color: #64748b; font-style: normal; font-weight: 600; }
+.help-points code {
+    background: #eff4fb;
+    color: #1f4e79;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+}
+
+.help-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 1.5rem; padding: 0 .5rem;
+}
+.help-nav-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; background: white; border: 1px solid #cbd5e1;
+    border-radius: 8px; font-weight: 600; color: #1e293b; cursor: pointer;
+    transition: all .15s;
+}
+.help-nav-btn:hover:not(:disabled) {
+    background: #f8fafc; border-color: #1f4e79; color: #1f4e79;
+    transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,.06);
+}
+.help-nav-btn:disabled { opacity: .4; cursor: not-allowed; }
+.help-nav-btn svg { width: 16px; height: 16px; }
+
+.help-footer-actions {
+    text-align: center;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+}
+.help-btn-primary {
+    display: inline-block;
+    background: #1f4e79;
+    color: white;
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 6px rgba(30, 58, 138, 0.2);
+}
+.help-btn-primary:hover {
+    background: #18405f;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+}
+</style>
+{% endblock %}

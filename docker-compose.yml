@@ -1,0 +1,41 @@
+# Minimalna konfiguracja do samodzielnego hostowania.
+#
+# ⚠️ BEZPIECZEŃSTWO:
+#  1. Ustaw RCN_AUTH_PASSWORD w pliku .env PRZED startem (serwer nie wystartuje
+#     z hasłem domyślnym `change-me`).
+#  2. Domyślny bind to 127.0.0.1 -- aplikacja NIE jest wystawiona do sieci.
+#     Do publicznego hostingu użyj reverse-proxy z TLS (bez HTTPS Basic Auth
+#     idzie otwartym tekstem, a brak rate-limitu ułatwia brute-force) --
+#     gotowy przykład z Traefikiem: docs/docker-compose.traefik.example.yml.
+services:
+  rcn-workshop:
+    build: .
+    container_name: rcn-workshop
+    restart: unless-stopped
+    ports:
+      - "${RCN_BIND:-127.0.0.1}:${RCN_PORT:-8000}:8000"
+    environment:
+      RCN_AUTH_USER: ${RCN_AUTH_USER:-admin}
+      RCN_AUTH_PASSWORD: ${RCN_AUTH_PASSWORD:-change-me}
+      # Readonly user (opcjonalny): włączany tylko gdy oba env są ustawione w .env.
+      # Empty default -> config.py:load_settings traktuje jak None -> readonly disabled.
+      RCN_READONLY_USER: ${RCN_READONLY_USER:-}
+      RCN_READONLY_PASSWORD: ${RCN_READONLY_PASSWORD:-}
+      RCN_DATA_DIR: /app/data
+      RCN_MAX_UPLOAD_MB: ${RCN_MAX_UPLOAD_MB:-512}
+      RCN_LOG_LEVEL: ${RCN_LOG_LEVEL:-info}
+      # Opcjonalna analityka (self-hosted, np. Umami) -- domyślnie wyłączona.
+      RCN_ANALYTICS_SCRIPT_URL: ${RCN_ANALYTICS_SCRIPT_URL:-}
+      RCN_ANALYTICS_WEBSITE_ID: ${RCN_ANALYTICS_WEBSITE_ID:-}
+      # Link "Kod źródłowy" w UI (AGPL §13); pusta wartość ukrywa link.
+      RCN_SOURCE_URL: ${RCN_SOURCE_URL:-https://github.com/emer-MR/rcn-workshop}
+    volumes:
+      - ./data:/app/data
+      - ./static:/app/static:ro
+      - ./templates:/app/templates:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

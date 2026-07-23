@@ -1,0 +1,86 @@
+# PRZYKŁAD konfiguracji produkcyjnej za Traefikiem (TLS + HSTS + rate-limit).
+#
+# Użycie:
+#   1. Skopiuj do katalogu głównego jako docker-compose.yml (albo uruchamiaj
+#      przez `docker compose -f docs/docker-compose.traefik.example.yml up -d`
+#      po dostosowaniu ścieżek wolumenów).
+#   2. Zamień WSZYSTKIE wystąpienia `rcn.example.com` na własną domenę.
+#   3. Zamień `traefik_public` / certresolver `letsencrypt` na nazwy z Twojej
+#      instalacji Traefika.
+#   4. Ustaw RCN_AUTH_PASSWORD w .env.
+#
+# Dlaczego reverse-proxy jest ważne: aplikacja używa HTTP Basic Auth --
+# bez TLS hasło leci otwartym tekstem; rate-limit Traefika chroni przed
+# brute-force. Sama aplikacja nie robi TLS ani rate-limitów.
+services:
+  rcn-workshop:
+    build: .
+    container_name: rcn-workshop
+    restart: unless-stopped
+    # Bez portu na hoście -- ruch wchodzi wyłącznie przez Traefika.
+    environment:
+      RCN_AUTH_USER: ${RCN_AUTH_USER:-admin}
+      RCN_AUTH_PASSWORD: ${RCN_AUTH_PASSWORD:-change-me}
+      RCN_READONLY_USER: ${RCN_READONLY_USER:-}
+      RCN_READONLY_PASSWORD: ${RCN_READONLY_PASSWORD:-}
+      RCN_DATA_DIR: /app/data
+      RCN_MAX_UPLOAD_MB: ${RCN_MAX_UPLOAD_MB:-512}
+      RCN_LOG_LEVEL: ${RCN_LOG_LEVEL:-info}
+      RCN_ANALYTICS_SCRIPT_URL: ${RCN_ANALYTICS_SCRIPT_URL:-}
+      RCN_ANALYTICS_WEBSITE_ID: ${RCN_ANALYTICS_WEBSITE_ID:-}
+      RCN_SOURCE_URL: ${RCN_SOURCE_URL:-https://github.com/emer-MR/rcn-workshop}
+    volumes:
+      - ./data:/app/data
+      - ./static:/app/static:ro
+      - ./templates:/app/templates:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - default
+      - traefik_net
+    labels:
+      - traefik.enable=true
+      # Nazwa sieci, w której Traefik widzi kontener (dopasuj do swojej instalacji).
+      - traefik.docker.network=traefik_public
+      - traefik.http.services.rcn-app.loadbalancer.server.port=8000
+      - traefik.http.services.rcn-app.loadbalancer.responseForwarding.flushInterval=100ms
+
+      # === Middlewares ===
+      # Buffering (długie uploady GML/ZIP do 1 GB)
+      - traefik.http.middlewares.rcn-buffer.buffering.maxRequestBodyBytes=1073741824
+      - traefik.http.middlewares.rcn-buffer.buffering.memRequestBodyBytes=10485760
+      - traefik.http.middlewares.rcn-buffer.buffering.maxResponseBodyBytes=1073741824
+      # HSTS: wymuszone HTTPS w cache przeglądarki na 1 rok
+      - traefik.http.middlewares.rcn-hsts.headers.stsseconds=31536000
+      - traefik.http.middlewares.rcn-hsts.headers.stsincludesubdomains=true
+      - traefik.http.middlewares.rcn-hsts.headers.stspreload=true
+      - traefik.http.middlewares.rcn-hsts.headers.forcestsheader=true
+      # Rate limit: 60 req/s średnio, burst 120, per-source-IP --
+      # chroni Basic Auth przed brute-force.
+      - traefik.http.middlewares.rcn-ratelimit.ratelimit.average=60
+      - traefik.http.middlewares.rcn-ratelimit.ratelimit.burst=120
+      # HTTP -> HTTPS redirect
+      - traefik.http.middlewares.rcn-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.rcn-https-redirect.redirectscheme.permanent=true
+
+      # === Router HTTPS ===
+      - traefik.http.routers.rcn.rule=Host(`rcn.example.com`)
+      - traefik.http.routers.rcn.entrypoints=websecure
+      - traefik.http.routers.rcn.tls=true
+      - traefik.http.routers.rcn.tls.certresolver=letsencrypt
+      - traefik.http.routers.rcn.middlewares=rcn-buffer,rcn-hsts,rcn-ratelimit
+      - traefik.http.routers.rcn.service=rcn-app
+      # === Router HTTP -> HTTPS ===
+      - traefik.http.routers.rcn-http.rule=Host(`rcn.example.com`)
+      - traefik.http.routers.rcn-http.entrypoints=web
+      - traefik.http.routers.rcn-http.middlewares=rcn-https-redirect
+
+networks:
+  default:
+  traefik_net:
+    name: traefik_public
+    external: true

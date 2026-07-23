@@ -1,0 +1,43 @@
+﻿INFORMACJA O WERSJI TESTOWEJ (BETA)
+====================================
+
+Instalujesz testową (beta) wersję programu RCN Workshop. Przed kontynuacją
+przeczytaj poniższe informacje.
+
+1. CO OZNACZA "BETA"
+
+Program jest w fazie testów. Może zawierać błędy, działać niestabilnie lub
+prezentować dane w sposób niekompletny albo nieaktualny. Kolejne wersje mogą
+zmieniać działanie funkcji bez zapowiedzi.
+
+2. WYNIKI SĄ POGLĄDOWE
+
+Wyniki analiz, statystyk i zestawień generowanych przez program służą wyłącznie
+celom poglądowym i testowym. NIE wykorzystuj ich w operacie szacunkowym ani
+w innych czynnościach zawodowych bez samodzielnej weryfikacji danych źródłowych.
+
+3. BRAK GWARANCJI I ODPOWIEDZIALNOŚCI
+
+Program jest udostępniany "TAKI, JAKI JEST" (as is), bez jakiejkolwiek gwarancji
+- w najszerszym zakresie dopuszczalnym przez prawo. Autor nie ponosi
+odpowiedzialności za szkody wynikłe z używania programu ani z wykorzystania
+jego wyników. Pełne brzmienie: paragrafy 15-16 licencji GNU AGPL v3
+(ekran licencji oraz plik LICENSE.txt w katalogu programu).
+
+4. DANE
+
+- Dane transakcyjne RCN wgrywasz samodzielnie (pliki GML lub gotowe paczki
+  workspace). Odpowiadasz za zgodność ich wykorzystania z warunkami, na jakich
+  zostały pozyskane z właściwego starostwa / ośrodka dokumentacji.
+- Punkty POI oraz podkłady mapowe pochodzą z OpenStreetMap
+  (c) autorzy OpenStreetMap, licencja ODbL (openstreetmap.org/copyright).
+- Wszystkie dane pozostają lokalnie na Twoim komputerze. Program nie wysyła
+  danych na żadne serwery.
+
+5. LICENCJA PROGRAMU
+
+RCN Workshop jest oprogramowaniem wolnym na licencji GNU AGPL v3 - tekst
+licencji zaakceptowałeś na poprzednim ekranie; kopia zostanie zainstalowana
+jako LICENSE.txt.
+
+Kontynuując instalację potwierdzasz, że rozumiesz powyższe zasady.

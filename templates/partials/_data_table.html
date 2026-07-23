@@ -1,0 +1,365 @@
+{# Tabela transakcji + skeleton + empty state.
+   Used by:
+   - widok mapowy (drawer dolny w wb-canvas) — Faza 3
+   - widok tabela pełnoekranowa (wb-table-view) — Faza 4
+   Wszystkie odwołania (filters, expandedIds, queryResult, sortBy, …) idą do scope
+   workspaceView() — partial nie tworzy nowego Alpine scope. #}
+
+{# PR3 redesign: sort-icon jako para SVG up+down. Klasa sorted-asc/sorted-desc na <th>
+   determinuje który chevron zapali się w primary -- patrz .wb-data-table .sort-icon w app.css #}
+<table class="data wb-data-table">
+    <thead>
+        <tr>
+            <th class="wb-col-focus" :aria-label="'Pokaż na mapie'"></th>
+            <th style="width: 44px; text-align: center;" :aria-label="'Zaznaczenie do kolekcji'"></th>
+            <th @click="sortBy('data_transakcji')" :class="sortClass('data_transakcji')" :aria-sort="ariaSortFor('data_transakcji')">Data <span class="sort-icon" aria-hidden="true"><svg class="up" viewBox="0 0 10 7" fill="currentColor"><path d="M5 0 L10 7 L0 7 Z"/></svg><svg class="down" viewBox="0 0 10 7" fill="currentColor"><path d="M0 0 L10 0 L5 7 Z"/></svg></span></th>
+            <th @click="sortBy('adres')" :class="sortClass('adres')" :aria-sort="ariaSortFor('adres')">Adres <span class="sort-icon" aria-hidden="true"><svg class="up" viewBox="0 0 10 7" fill="currentColor"><path d="M5 0 L10 7 L0 7 Z"/></svg><svg class="down" viewBox="0 0 10 7" fill="currentColor"><path d="M0 0 L10 0 L5 7 Z"/></svg></span></th>
+            <th @click="sortBy('obreb')" :class="sortClass('obreb')" :aria-sort="ariaSortFor('obreb')">Obręb <span class="sort-icon" aria-hidden="true"><svg class="up" viewBox="0 0 10 7" fill="currentColor"><path d="M5 0 L10 7 L0 7 Z"/></svg><svg class="down" viewBox="0 0 10 7" fill="currentColor"><path d="M0 0 L10 0 L5 7 Z"/></svg></span></th>
+            <th @click="sortBy('first_plot_ident')" :class="sortClass('first_plot_ident')" :aria-sort="ariaSortFor('first_plot_ident')">Nr działki <span class="sort-icon" aria-hidden="true"><svg class="up" viewBox="0 0 10 7" fill="currentColor"><path d="M5 0 L10 7 L0 7 Z"/></svg><svg class="down" viewBox="0 0 10 7" fill="currentColor"><path d="M0 0 L10 0 L5 7 Z"/></svg></span></th>
+            <th class="num" @click="sortBy('area_m2')" :class="sortClass('area_m2')" :aria-sort="ariaSortFor('area_m2')">Pow. [m²] <span class="sort-icon" aria-hidden="true"><svg class="up" viewBox="0 0 10 7" fill="currentColor"><path d="M5 0 L10 7 L0 7 Z"/></svg><svg class="down" viewBox="0 0 10 7" fill="currentColor"><path d="M0 0 L10 0 L5 7 Z"/></svg></span></th>
+            <th class="num" @click="sortBy('cena_transakcji_brutto')" :class="sortClass('cena_transakcji_brutto')" :aria-sort="ariaSortFor('cena_transakcji_brutto')">Cena <span class="sort-icon" aria-hidden="true"><svg class="up" viewBox="0 0 10 7" fill="currentColor"><path d="M5 0 L10 7 L0 7 Z"/></svg><svg class="down" viewBox="0 0 10 7" fill="currentColor"><path d="M0 0 L10 0 L5 7 Z"/></svg></span></th>
+            <th class="num" @click="sortBy('cena_na_m2')" :class="sortClass('cena_na_m2')" :aria-sort="ariaSortFor('cena_na_m2')">Cena/m² <span class="sort-icon" aria-hidden="true"><svg class="up" viewBox="0 0 10 7" fill="currentColor"><path d="M5 0 L10 7 L0 7 Z"/></svg><svg class="down" viewBox="0 0 10 7" fill="currentColor"><path d="M0 0 L10 0 L5 7 Z"/></svg></span></th>
+            <th @click="sortBy('rodzaj_nieruchomosci')" :class="sortClass('rodzaj_nieruchomosci')" :aria-sort="ariaSortFor('rodzaj_nieruchomosci')">Typ <span class="sort-icon" aria-hidden="true"><svg class="up" viewBox="0 0 10 7" fill="currentColor"><path d="M5 0 L10 7 L0 7 Z"/></svg><svg class="down" viewBox="0 0 10 7" fill="currentColor"><path d="M0 0 L10 0 L5 7 Z"/></svg></span></th>
+        </tr>
+        <tr class="wb-filter-row">
+            <th></th>
+            <th></th>
+            <th>
+                <div class="wb-filter-range">
+                    <input type="date" x-model="filters.data_od" @change.debounce.300ms="runQuery()" title="Data od">
+                    <input type="date" x-model="filters.data_do" @change.debounce.300ms="runQuery()" title="Data do">
+                </div>
+            </th>
+            <th><input type="text" x-model="filters.adres" @input.debounce.300ms="runQuery()" placeholder="szukaj w adresie…"></th>
+            <th><input type="text" x-model="colFilterObreb" @input.debounce.300ms="applyColFilters()" placeholder="nazwa lub kod…"></th>
+            <th><input type="text" x-model="filters.plot_ident_search" @input.debounce.400ms="runQuery()" placeholder="np. 85/3 lub fragment…" title="Szukaj po identyfikatorze działki"></th>
+            <th>
+                <div class="wb-filter-range">
+                    <input type="number" x-model.number="filters.area_min" @input.debounce.400ms="runQuery()" placeholder="od" title="Pow. od m²" step="10" min="0">
+                    <input type="number" x-model.number="filters.area_max" @input.debounce.400ms="runQuery()" placeholder="do" title="Pow. do m²" step="10" min="0">
+                </div>
+            </th>
+            <th>
+                <div class="wb-filter-range">
+                    <input type="number" x-model.number="filters.cena_min" @input.debounce.400ms="runQuery()" placeholder="od" title="Cena od" step="1000">
+                    <input type="number" x-model.number="filters.cena_max" @input.debounce.400ms="runQuery()" placeholder="do" title="Cena do" step="1000">
+                </div>
+            </th>
+            <th>
+                <div class="wb-filter-range">
+                    <input type="number" x-model.number="filters.cena_m2_min" @input.debounce.400ms="runQuery()" placeholder="od" title="Cena/m² od" step="100">
+                    <input type="number" x-model.number="filters.cena_m2_max" @input.debounce.400ms="runQuery()" placeholder="do" title="Cena/m² do" step="100">
+                </div>
+            </th>
+            <th>
+                <select class="wb-col-select"
+                        @change="filters.rodzaj_nieruchomosci = $event.target.value ? [$event.target.value] : []; page = 1; runQuery()"
+                        title="Filtr po typie nieruchomości (header). Nadpisuje wybór w sidebarze.">
+                    <option value="" :selected="(filters.rodzaj_nieruchomosci || []).length !== 1">— typ —</option>
+                    <template x-for="v in lookups.rodzaj_nieruchomosci" :key="v">
+                        <option :value="v" :selected="(filters.rodzaj_nieruchomosci || []).length === 1 && filters.rodzaj_nieruchomosci[0] === v" x-text="v"></option>
+                    </template>
+                </select>
+            </th>
+        </tr>
+    </thead>
+    <template x-for="item in queryResult.items" :key="item.id_rcn">
+        <tbody>
+            <tr :class="{ selected: selectedIds.has(item.id_rcn), active: selected === item.id_rcn, expanded: expandedIds.has(item.id_rcn), 'wb-row-withdrawn': item.status && item.status !== 'aktywna' }"
+                :data-id-rcn="item.id_rcn"
+                @click="wbRowClick(item)">
+                <td class="wb-col-focus" @click.stop>
+                    {# Faza 4 commit 3: w widoku tabela 🎯 otwiera modal z mapą + bbox-aware sąsiadami;
+                       w widoku map (drawer) zachowane stare zachowanie -- focus na głównej mapie. #}
+                    <button class="wb-focus-btn"
+                            @click="viewMode === 'table' ? wbOpenMapModal(item) : wbFocusOnMap(item)"
+                            :title="viewMode === 'table' ? 'Pokaż na mapie (modal z sąsiadami)' : 'Pokaż na mapie'"
+                            :aria-label="'Pokaż na mapie: ' + (item.adres || item.id_rcn)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+                    </button>
+                </td>
+                <td @click.stop style="text-align: center;">
+                    <input type="checkbox" :checked="selectedIds.has(item.id_rcn)"
+                           @change="wbToggleItem(item)">
+                </td>
+                <td>
+                    <span class="wb-expand-ind" :class="expandedIds.has(item.id_rcn) ? 'is-open' : ''" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </span>
+                    <span x-text="item.data_transakcji"></span>
+                    <span class="wb-note-ind"
+                          :class="item.has_note ? 'has-note' : 'no-note'"
+                          :title="item.has_note ? 'Notatka (hover, kliknij aby edytować)' : 'Dodaj notatkę'"
+                          @mouseenter="wbNoteShow(item, $event)"
+                          @mouseleave="wbNoteHide()"
+                          @click.stop="openNote(item.id_rcn)"
+                          x-html="item.has_note ? '<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; class=&quot;wb-note-svg&quot;><path d=&quot;M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z&quot;/><polyline points=&quot;14 2 14 8 20 8&quot;/><line x1=&quot;16&quot; y1=&quot;13&quot; x2=&quot;8&quot; y2=&quot;13&quot;/><line x1=&quot;16&quot; y1=&quot;17&quot; x2=&quot;8&quot; y2=&quot;17&quot;/></svg>' : '<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; class=&quot;wb-note-svg&quot;><line x1=&quot;12&quot; y1=&quot;5&quot; x2=&quot;12&quot; y2=&quot;19&quot;/><line x1=&quot;5&quot; y1=&quot;12&quot; x2=&quot;19&quot; y2=&quot;12&quot;/></svg>'"></span>
+                </td>
+                <td>
+                    <span x-show="item.adres" class="wb-linkable"
+                          @click.stop="wbSetAdresFilter(item.adres)"
+                          :title="'Filtruj po adresie: ' + (item.adres || '')"
+                          x-text="item.adres"></span>
+                    <span x-show="!item.adres">—</span>
+                </td>
+                <td>
+                    <span x-show="item.obreb" class="wb-linkable"
+                          @click.stop="wbSetObrebFilter(item.obreb)"
+                          :title="'Filtruj po obrębie: ' + (item.obreb || '')"
+                          x-text="item.obreb"></span>
+                    <span x-show="!item.obreb">—</span>
+                </td>
+                <td>
+                    {# Faza 4: numer dzialki klikalny (jak obreb/adres) gdy 1 dzialka --
+                       klik filtruje tabele do wszystkich transakcji tej dzialki (wiki).
+                       Przy >1 dzialce skondensowany text bez klikalnosci. #}
+                    <template x-if="!item.plot_idents || item.plot_idents.length === 0">
+                        <span class="muted">—</span>
+                    </template>
+                    <template x-if="item.plot_idents && item.plot_idents.length === 1">
+                        <span class="wb-linkable"
+                              @click.stop="wbFilterByPlot(item.plot_idents[0], 'Działka ' + item.plot_idents[0])"
+                              :title="'Filtruj po działce: ' + item.plot_idents[0]"
+                              x-text="shortParcelNumber(item.plot_idents[0])"></span>
+                    </template>
+                    <template x-if="item.plot_idents && item.plot_idents.length > 1">
+                        <span x-text="formatParcelNumbers(item.plot_idents)" :title="formatParcelNumbersTitle(item.plot_idents)"></span>
+                    </template>
+                </td>
+                <td class="num" :class="{ 'cell-error': item.area_m2 === 0 }"
+                    x-text="item.area_m2 != null ? Math.round(item.area_m2).toLocaleString('pl-PL') : '—'"></td>
+                <td class="num">
+                    <span x-text="formatMoney(item.cena_transakcji_brutto)"></span>
+                    <span class="wb-quality-badge"
+                          x-show="item.data_quality_flags && item.data_quality_flags.length > 0"
+                          :title="wbQualityTooltip(item.data_quality_flags)"
+                          @click.stop="alert(wbQualityTooltip(item.data_quality_flags))"
+                          aria-label="Ostrzeżenie: jakość danych"
+                          tabindex="0">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </span>
+                    <span class="wb-vat-badge" x-show="item.stawka_vat != null"
+                          x-text="item.stawka_vat != null ? (item.stawka_vat > 100 ? 'VAT ' + formatMoney(item.stawka_vat) : 'VAT ' + item.stawka_vat + '%') : ''"
+                          :title="item.stawka_vat > 100 ? 'Kwota VAT (zł) z GML' : 'Stawka VAT (%) z GML'"></span>
+                </td>
+                <td class="num" :class="{ 'cell-error': item.area_m2 === 0 }"
+                    x-text="item.area_m2 === 0 ? '⚠' : (item.cena_na_m2 != null ? Math.round(item.cena_na_m2).toLocaleString('pl-PL') : '—')"></td>
+                <td>
+                    <span x-show="item.rodzaj_nieruchomosci" class="wb-badge-type" :class="'t-' + typeKey(item.rodzaj_nieruchomosci)">
+                        <span class="dot" aria-hidden="true"></span>
+                        <span x-text="typeLabel(item.rodzaj_nieruchomosci)"></span>
+                    </span>
+                    <span x-show="!item.rodzaj_nieruchomosci" class="muted">—</span>
+                </td>
+            </tr>
+            <tr x-show="expandedIds.has(item.id_rcn)" class="expanded-row">
+                <td colspan="10">
+                    <div x-show="detailsLoading[item.id_rcn]" class="muted tiny">Wczytywanie szczegółów…</div>
+                    <template x-if="detailsCache[item.id_rcn]">
+                        <div class="expand-content-inner">
+                            {# Faza 4 commit 5: 3 karty (Działki / Budynki / Lokale) w grid 3-col,
+                               kompaktowe wiersze ident + sub (typ/obreb/adres) + pow. + cena.
+                               Empty state per karta gdy 0 obiektów. Wzór: mocks/redesign-v2-components.html sekcja 3. #}
+                            <div class="expand-cards-grid">
+                                <div class="expand-card">
+                                    <div class="expand-card-header">
+                                        <span class="expand-card-title">
+                                            <span class="icon-dot" style="background: var(--color-type-grunt-niezab);"></span>
+                                            Działki
+                                        </span>
+                                        <span class="expand-card-count" x-text="detailsCache[item.id_rcn].plots.length"></span>
+                                    </div>
+                                    <div class="expand-card-body">
+                                        <template x-if="detailsCache[item.id_rcn].plots.length === 0">
+                                            <div class="expand-card-empty">Brak działek w tej transakcji</div>
+                                        </template>
+                                        <template x-for="p in detailsCache[item.id_rcn].plots" :key="p.id">
+                                            <div class="expand-row-item">
+                                                <div class="er-ident-block">
+                                                    <span class="er-ident-line">
+                                                        <code class="er-ident" x-text="p.ident"></code>
+                                                        <button class="wb-wiki-btn"
+                                                                @click.stop="wbFilterByPlot(p.ident, 'Działka ' + p.ident + (p.obreb ? ' (' + p.obreb + ')' : ''))"
+                                                                title="Pokaż wszystkie transakcje tej działki" aria-label="Wiki działki">
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                                        </button>
+                                                        <span x-show="p.geom_source === 'egib'" class="wb-geom-badge wb-geom-egib"
+                                                              title="Lokalizacja działki uzupełniona z EGIB GPKG (operator RCN nie wpisał geometrii w GML)">📐 z EGIB</span>
+                                                    </span>
+                                                    <span class="er-sub" x-text="[p.obreb, p.miejscowosc, p.adres].filter(Boolean).join(' · ') || '—'"></span>
+                                                </div>
+                                                <span class="er-area" x-text="p.powierzchnia_m2 != null ? Math.round(p.powierzchnia_m2).toLocaleString('pl-PL') + ' m²' : '—'"></span>
+                                                <span class="er-price" x-text="formatMoney(p.cena_brutto)"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div class="expand-card">
+                                    <div class="expand-card-header">
+                                        <span class="expand-card-title">
+                                            <span class="icon-dot" style="background: var(--color-type-budynek);"></span>
+                                            Budynki
+                                        </span>
+                                        <span class="expand-card-count" x-text="detailsCache[item.id_rcn].buildings.length"></span>
+                                    </div>
+                                    <div class="expand-card-body">
+                                        <template x-if="detailsCache[item.id_rcn].buildings.length === 0">
+                                            <div class="expand-card-empty">Brak budynków w tej transakcji</div>
+                                        </template>
+                                        <template x-for="b in detailsCache[item.id_rcn].buildings" :key="b.id">
+                                            <div class="expand-row-item">
+                                                <div class="er-ident-block">
+                                                    <span class="er-ident-line">
+                                                        <code class="er-ident" x-text="b.ident"></code>
+                                                        <button class="wb-wiki-btn"
+                                                                @click.stop="wbFilterByBuilding(b.ident, 'Budynek ' + b.ident)"
+                                                                title="Pokaż wszystkie transakcje tego budynku" aria-label="Wiki budynku">
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                                        </button>
+                                                        <span x-show="b.geom_source === 'egib'" class="wb-geom-badge wb-geom-egib"
+                                                              title="Lokalizacja budynku uzupełniona z EGIB GPKG (operator RCN nie wpisał geometrii w GML)">📐 z EGIB</span>
+                                                    </span>
+                                                    <span class="er-sub" x-text="[b.rodzaj_budynku, b.obreb, b.miejscowosc, b.adres].filter(Boolean).join(' · ') || '—'"></span>
+                                                </div>
+                                                <span class="er-area" x-text="b.pow_uzytkowa != null ? Math.round(b.pow_uzytkowa).toLocaleString('pl-PL') + ' m²' : '—'"></span>
+                                                <span class="er-price" x-text="formatMoney(b.cena_brutto)"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div class="expand-card">
+                                    <div class="expand-card-header">
+                                        <span class="expand-card-title">
+                                            <span class="icon-dot" style="background: var(--color-type-lokal);"></span>
+                                            Lokale
+                                        </span>
+                                        <span class="expand-card-count" x-text="detailsCache[item.id_rcn].locals.length"></span>
+                                    </div>
+                                    <div class="expand-card-body">
+                                        <template x-if="detailsCache[item.id_rcn].locals.length === 0">
+                                            <div class="expand-card-empty">Brak lokali w tej transakcji</div>
+                                        </template>
+                                        <template x-for="l in detailsCache[item.id_rcn].locals" :key="l.id">
+                                            <div class="expand-row-item">
+                                                <div class="er-ident-block">
+                                                    <span class="er-ident-line">
+                                                        <code class="er-ident" x-text="l.ident"></code>
+                                                        <button class="wb-wiki-btn"
+                                                                @click.stop="wbFilterByLocal(l.ident, 'Lokal ' + l.ident)"
+                                                                title="Pokaż wszystkie transakcje tego lokalu" aria-label="Wiki lokalu">
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                                        </button>
+                                                        <span x-show="l.geom_source === 'inherited'" class="wb-geom-badge wb-geom-inherited"
+                                                              title="Lokalizacja lokalu przejęta z budynku/działki tej samej transakcji (lokal nie ma własnej geometrii w EGIB)">📍 z budynku</span>
+                                                        <span x-show="l.geom_source === 'egib'" class="wb-geom-badge wb-geom-egib"
+                                                              title="Lokalizacja uzupełniona z EGIB GPKG">📐 z EGIB</span>
+                                                    </span>
+                                                    <span class="er-sub" x-text="[l.funkcja, l.miejscowosc, l.adres, l.kondygnacja != null ? 'p. ' + l.kondygnacja : '', l.liczba_izb != null ? l.liczba_izb + ' izb' : ''].filter(Boolean).join(' · ') || '—'"></span>
+                                                </div>
+                                                <span class="er-area" x-text="l.pow_uzytkowa != null ? Math.round(l.pow_uzytkowa).toLocaleString('pl-PL') + ' m²' : '—'"></span>
+                                                <span class="er-price" x-text="formatMoney(l.cena_brutto)"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# Pasek meta dokumentu -- pola z workspace.sqlite (transakcje table):
+                               dokument, tworca_dokumentu, rodzaj_rynku, rodzaj_transakcji,
+                               strona_sprzedajaca/kupujaca, kwota_vat, id_rcn. #}
+                            <div class="expand-meta">
+                                <div class="expand-meta-item" x-show="detailsCache[item.id_rcn].transakcja.dokument">
+                                    <span class="key">Dokument</span>
+                                    <span class="val" x-text="detailsCache[item.id_rcn].transakcja.dokument"></span>
+                                </div>
+                                <div class="expand-meta-item" x-show="detailsCache[item.id_rcn].transakcja.tworca_dokumentu">
+                                    <span class="key">Notariusz</span>
+                                    <span class="val" x-text="detailsCache[item.id_rcn].transakcja.tworca_dokumentu"></span>
+                                </div>
+                                <div class="expand-meta-item" x-show="detailsCache[item.id_rcn].transakcja.rodzaj_rynku">
+                                    <span class="key">Rynek</span>
+                                    <span class="val" x-text="detailsCache[item.id_rcn].transakcja.rodzaj_rynku"></span>
+                                </div>
+                                <div class="expand-meta-item" x-show="detailsCache[item.id_rcn].transakcja.rodzaj_transakcji">
+                                    <span class="key">Transakcja</span>
+                                    <span class="val" x-text="detailsCache[item.id_rcn].transakcja.rodzaj_transakcji"></span>
+                                </div>
+                                <div class="expand-meta-item" x-show="detailsCache[item.id_rcn].transakcja.strona_sprzedajaca || detailsCache[item.id_rcn].transakcja.strona_kupujaca">
+                                    <span class="key">Strony</span>
+                                    <span class="val">
+                                        <span x-text="detailsCache[item.id_rcn].transakcja.strona_sprzedajaca || '—'"></span>
+                                        →
+                                        <span x-text="detailsCache[item.id_rcn].transakcja.strona_kupujaca || '—'"></span>
+                                    </span>
+                                </div>
+                                <div class="expand-meta-item" x-show="detailsCache[item.id_rcn].transakcja.kwota_vat != null && detailsCache[item.id_rcn].transakcja.kwota_vat !== 0">
+                                    <span class="key" x-text="detailsCache[item.id_rcn].transakcja.kwota_vat > 100 ? 'VAT (kwota)' : 'VAT (stawka)'"></span>
+                                    <span class="val mono" x-text="detailsCache[item.id_rcn].transakcja.kwota_vat > 100 ? formatMoney(detailsCache[item.id_rcn].transakcja.kwota_vat) : detailsCache[item.id_rcn].transakcja.kwota_vat + '%'"></span>
+                                </div>
+                                <div class="expand-meta-item">
+                                    <span class="key">ID</span>
+                                    <span class="val mono" x-text="item.id_rcn" :title="item.id_rcn"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </td>
+            </tr>
+        </tbody>
+    </template>
+    {# PR9: empty state -- konkretna sugestia akcji zamiast samej informacji #}
+    <tbody x-show="!loadingQuery && queryResult.items.length === 0">
+        <tr>
+            <td colspan="10" style="padding: 0;">
+                <div class="wb-empty-state">
+                    <div class="wb-empty-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            <line x1="8" y1="11" x2="14" y2="11"/>
+                        </svg>
+                    </div>
+                    <h3 class="wb-empty-title">Brak transakcji spełniających kryteria</h3>
+                    <p class="wb-empty-desc" x-show="activeFilterCount() > 0">
+                        Aktywnych filtrów: <strong x-text="activeFilterCount()"></strong>.
+                        Spróbuj poszerzyć zakres ceny/daty albo usuń filtry żeby zobaczyć więcej wyników.
+                    </p>
+                    <p class="wb-empty-desc" x-show="activeFilterCount() === 0">
+                        Workspace jest pusty — wgraj plik GML (Admin → Upload GML) żeby załadować dane RCN.
+                    </p>
+                    <div class="wb-empty-actions" x-show="activeFilterCount() > 0">
+                        <button class="btn-secondary btn-sm" @click="resetFilters(); runQuery()">Wyczyść wszystkie filtry</button>
+                        <button class="btn-ghost btn-sm" @click="openFiltersPanel()">Otwórz panel filtrów</button>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+{# PR9: loading skeleton -- shimmer rows zamiast spinera (mniej irytujace,
+   user widzi gdzie pojawia sie dane) #}
+<div x-show="loadingQuery" class="wb-skel-table" aria-label="Wczytywanie danych…">
+    <template x-for="i in 8" :key="i">
+        <div class="wb-skel-row">
+            <div class="wb-skel" style="width: 18px;"></div>
+            <div class="wb-skel" style="width: 18px;"></div>
+            <div class="wb-skel" style="width: 88px;"></div>
+            <div class="wb-skel" style="flex: 1; max-width: 240px;"></div>
+            <div class="wb-skel" style="width: 60px;"></div>
+            <div class="wb-skel" style="width: 100px;"></div>
+            <div class="wb-skel" style="width: 70px;"></div>
+            <div class="wb-skel" style="width: 90px;"></div>
+            <div class="wb-skel" style="width: 70px;"></div>
+            <div class="wb-skel pill" style="width: 110px;"></div>
+        </div>
+    </template>
+</div>

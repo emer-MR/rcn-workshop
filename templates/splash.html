@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}RCN Workshop — narzędzie dla rzeczoznawców{% endblock %}
+{# Splash to strona PRZED wejściem do aplikacji -- ostrzeżenie o wersji testowej
+   pokazujemy dopiero za logowaniem, żeby nie dublować komunikatu. #}
+{% block test_warning_modal %}{% endblock %}
+
+{% block topnav %}
+<header class="bg-rcn-primary text-white shadow-sm">
+    <div class="flex items-center gap-4 px-4 py-3">
+        <span class="font-semibold tracking-tight text-lg">RCN Workshop</span>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="splash-wrap">
+    <div class="splash-card">
+        <h1>RCN Workshop</h1>
+        <p class="splash-subtitle">Narzędzie dla rzeczoznawców majątkowych do pracy z plikami GML Rejestru Cen Nieruchomości.</p>
+
+        <div class="splash-features">
+            <div class="splash-feat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                    <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+                </svg>
+                <strong>Mapa transakcji</strong>
+                <span>BBox/polygon, sąsiedzi w 50/100/250 m, warstwy EGIB</span>
+            </div>
+            <div class="splash-feat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 3h18v18H3zM3 9h18M9 21V9"/>
+                </svg>
+                <strong>Tabela + filtry</strong>
+                <span>Cena, powierzchnia, obręb, daty, identyfikator EGIB</span>
+            </div>
+            <div class="splash-feat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <strong>Eksport XLSX/GPKG/CSV</strong>
+                <span>Transakcje, działki, budynki i lokale</span>
+            </div>
+            <div class="splash-feat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <strong>Flagi jakości danych</strong>
+                <span>Wykrywa anomalie: multi-akt, brak obiektów, ekstremalne ceny/m²</span>
+            </div>
+        </div>
+
+        <div class="splash-cta">
+            <a href="/workspaces" class="splash-btn-primary">Zaloguj się i przejdź do aplikacji</a>
+            <a href="/instrukcja" class="splash-btn-secondary">📖 Instrukcja obsługi</a>
+            {% if survey_url %}
+            <a href="/ankieta" target="_blank" rel="noopener" class="splash-btn-secondary">💬 Podziel się opinią</a>
+            {% endif %}
+            {% if download_url %}
+            <a href="/pobierz" class="splash-btn-secondary">⬇ Pobierz wersję na komputer{% if is_beta %} (beta){% endif %}</a>
+            {% endif %}
+            <p class="splash-note">Dostęp wyłącznie dla zalogowanych użytkowników. Skontaktuj się z administratorem aby uzyskać dane logowania.</p>
+        </div>
+
+        <div class="splash-footer">
+            <span>Self-hosted · FastAPI + SQLite + Leaflet · v{{ app_version }}</span>
+            {% if source_url %}
+            · <a href="{{ source_url }}" target="_blank" rel="noopener">Kod źródłowy (AGPL-3.0)</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.splash-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #eff4fb 100%);
+}
+.splash-card {
+    max-width: 760px;
+    width: 100%;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 3rem 2.5rem;
+    box-shadow: 0 4px 16px rgba(30, 58, 138, 0.06);
+}
+.splash-card h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: #1f4e79;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.02em;
+}
+.splash-subtitle {
+    font-size: 1.1rem;
+    color: #475569;
+    margin: 0 0 2rem;
+    line-height: 1.5;
+}
+.splash-features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin: 0 0 2rem;
+}
+@media (max-width: 600px) {
+    .splash-features { grid-template-columns: 1fr; }
+}
+.splash-feat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    padding: 1rem 1.1rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+.splash-feat svg {
+    width: 22px;
+    height: 22px;
+    color: #1f4e79;
+    margin-bottom: 0.2rem;
+}
+.splash-feat strong {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.95rem;
+}
+.splash-feat span {
+    font-size: 0.85rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+.splash-cta {
+    text-align: center;
+    margin: 1.5rem 0 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+}
+.splash-btn-primary {
+    display: inline-block;
+    background: #1f4e79;
+    color: white;
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 6px rgba(30, 58, 138, 0.2);
+}
+.splash-btn-primary:hover {
+    background: #18405f;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+}
+.splash-btn-secondary {
+    display: inline-block;
+    background: white;
+    color: #1f4e79;
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    text-decoration: none;
+    border: 1px solid #cbd5e1;
+    transition: all 0.15s ease;
+}
+.splash-btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #1f4e79;
+}
+.splash-note {
+    margin: 1rem 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
+    line-height: 1.5;
+}
+.splash-footer {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-align: center;
+}
+</style>
+{% endblock %}

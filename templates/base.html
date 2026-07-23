@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}RCN Workshop{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
+    {% if analytics_script_url and analytics_website_id %}
+    <!-- Analityka (opcjonalna; aktywna tylko gdy operator ustawi RCN_ANALYTICS_SCRIPT_URL
+         + RCN_ANALYTICS_WEBSITE_ID -- np. self-hosted Umami, cookieless) -->
+    <script defer src="{{ analytics_script_url }}" data-website-id="{{ analytics_website_id }}"></script>
+    {% endif %}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        rcn: {
+                            primary: '#1f4e79',
+                            'primary-hover': '#18405f',
+                            accent: '#f4b183',
+                            danger: '#c0392b',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <!-- Geist Sans + Geist Mono (Vercel font) -- redesign v1 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+    <!-- Design tokens -- ŁADUJEMY PRZED app.css, żeby zmienne były dostępne -->
+    <link rel="stylesheet" href="/static/css/tokens.css?v={{ static_version }}">
+    <link rel="stylesheet" href="/static/css/reset.css?v={{ static_version }}">
+    <link rel="stylesheet" href="/static/css/app.css?v={{ static_version }}">
+    {% block extra_head %}{% endblock %}
+    <script src="https://unpkg.com/marked@14.1.2/marked.min.js"></script>
+    <script src="https://unpkg.com/dompurify@3.1.7/dist/purify.min.js"></script>
+    <script src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js" defer></script>
+    <!-- Chart.js lokalnie (offline / frozen .exe) -- wersja 4.4.4, pobrana z jsDelivr -->
+    <script src="/static/vendor/chart.umd.min.js?v={{ static_version }}"></script>
+</head>
+<body class="flex flex-col h-screen bg-slate-50 text-slate-800 font-sans">
+    {% block topnav %}
+    <header class="bg-rcn-primary text-white shadow-sm">
+        <div class="flex items-center gap-4 px-4 py-2">
+            <a href="/workspaces" class="font-semibold tracking-tight text-lg">RCN Workshop</a>
+            {% if is_beta %}<span class="rcn-beta-badge" title="Wersja testowa {{ app_version }} — może zawierać błędy">BETA</span>{% endif %}
+            <nav class="flex gap-4 ml-auto text-sm items-center">
+                <a href="/workspaces" class="opacity-80 hover:opacity-100 transition-opacity">Workspaces</a>
+                {% if survey_url %}
+                <a href="/ankieta" target="_blank" rel="noopener"
+                   class="opacity-80 hover:opacity-100 transition-opacity">💬 Podziel się opinią</a>
+                {% endif %}
+                {% if source_url %}
+                <!-- AGPL §13: oferta kodu źródłowego dla użytkowników sieciowych -->
+                <a href="{{ source_url }}" target="_blank" rel="noopener"
+                   class="opacity-50 hover:opacity-100 transition-opacity text-xs">Kod źródłowy</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+    {% endblock %}
+    <main class="flex-1 flex flex-col min-h-0 p-3">
+        {% block content %}{% endblock %}
+    </main>
+
+    {# Ostrzeżenie o wersji testowej. Blok, żeby splash (strona przed wejściem
+       do aplikacji) mógł je wyłączyć -- tam nie ma czego ostrzegać. #}
+    {% block test_warning_modal %}
+    {% if test_warning %}
+    <div id="rcn-test-warning" class="modal-backdrop" hidden>
+        <div class="modal rcn-test-warning" role="alertdialog" aria-modal="true"
+             aria-labelledby="rcn-tw-title" aria-describedby="rcn-tw-desc">
+            <h2 id="rcn-tw-title" class="rcn-tw-title">⚠️ Wersja testowa ({{ app_version }})</h2>
+            <div id="rcn-tw-desc" class="rcn-tw-body">
+                <p>Korzystasz z <strong>wersji testowej</strong> aplikacji RCN Workshop,
+                   udostępnionej do zapoznania się z narzędziem i zebrania uwag.</p>
+                <p>Aplikacja może zawierać błędy, a prezentowane dane mogą być
+                   <strong>niekompletne lub nieaktualne</strong>. Wyniki analiz służą
+                   wyłącznie celom poglądowym.</p>
+                <p class="rcn-tw-warn"><strong>Nie wykorzystuj ich w operacie szacunkowym
+                   ani w innych czynnościach zawodowych bez samodzielnej weryfikacji
+                   danych źródłowych.</strong> Autor nie ponosi odpowiedzialności za
+                   skutki wykorzystania wyników z tej wersji.</p>
+                {% if survey_url %}
+                <p class="rcn-tw-note">Znalazłeś błąd albo masz pomysł na usprawnienie?
+                   Napisz o tym w <a href="/ankieta" target="_blank" rel="noopener">krótkiej ankiecie</a>.</p>
+                {% endif %}
+            </div>
+            <button type="button" id="rcn-test-warning-ok" class="rcn-tw-btn" autofocus>
+                Rozumiem, przechodzę dalej
+            </button>
+        </div>
+    </div>
+    <script>
+    (function () {
+        // Raz na WERSJĘ aplikacji (localStorage z numerem wersji w kluczu):
+        // pierwsze uruchomienie po instalacji/aktualizacji pokazuje ostrzeżenie,
+        // potem znika aż do kolejnej wersji. Decyzja 2026-07-22 -- w desktopie
+        // każdy start okna to nowa sesja, więc sessionStorage męczyłby testera
+        // przy każdym uruchomieniu, a zgoda prawna raz na wydanie wystarcza.
+        var KLUCZ = 'rcn-test-warning-ack-{{ app_version }}';
+        var box = document.getElementById('rcn-test-warning');
+        var ok = document.getElementById('rcn-test-warning-ok');
+        if (!box || !ok) return;
+        var zapamietane;
+        try { zapamietane = localStorage.getItem(KLUCZ); } catch (e) { zapamietane = null; }
+        if (zapamietane === '1') return;
+
+        box.hidden = false;
+        document.body.style.overflow = 'hidden';
+        ok.focus();
+
+        ok.addEventListener('click', function () {
+            try { localStorage.setItem(KLUCZ, '1'); } catch (e) { /* tryb prywatny */ }
+            box.hidden = true;
+            document.body.style.overflow = '';
+        });
+        // Celowo BRAK zamykania klawiszem Escape i kliknięciem w tło --
+        // potwierdzenie ma być świadomym kliknięciem.
+    })();
+    </script>
+    {% endif %}
+    {% endblock %}
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

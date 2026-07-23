@@ -1,0 +1,141 @@
+{# Panel filtrów (sidebar). Used by:
+   - widok mapowy (zadokowany w wb-canvas, absolute positioning) — Faza 3
+   - widok tabela pełnoekranowa (część flex grid, position:relative) — Faza 4
+   filtersCollapsed/filtersOpen state idą do scope workspaceView() — partial
+   nie tworzy nowego Alpine scope. #}
+<aside class="wb-sidebar" :class="filtersOpen ? 'is-open' : ''">
+<div class="wb-sidebar-header">
+    <span class="wb-sidebar-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filtry
+        <span class="badge" x-show="activeFilterCount() > 0" x-text="activeFilterCount()"></span>
+    </span>
+    <button class="wb-sidebar-toggle"
+            @click="toggleFiltersCollapsed()"
+            :title="filtersCollapsed ? 'Rozwiń panel filtrów' : 'Zwiń panel filtrów'"
+            :aria-label="filtersCollapsed ? 'Rozwiń panel filtrów' : 'Zwiń panel filtrów'"
+            :aria-expanded="!filtersCollapsed">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+             :style="filtersCollapsed ? 'transform: rotate(180deg)' : ''">
+            <polyline points="9 18 15 12 9 6"/>
+        </svg>
+    </button>
+</div>
+
+{# Pasek collapsed -- ikonka filter + badge z liczba aktywnych #}
+<div class="wb-sidebar-collapsed-info">
+    <button class="wb-sidebar-toggle" @click="toggleFiltersCollapsed()" title="Rozwiń panel filtrów">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    </button>
+    <span class="wb-sidebar-active-count" x-show="activeFilterCount() > 0" x-text="activeFilterCount()" title="Liczba aktywnych filtrów"></span>
+</div>
+
+<div class="wb-sidebar-body">
+    <div class="wb-filter-section">
+        <h3>Rynek / Typ</h3>
+        <label>Rodzaj rynku
+            <select multiple size="3" x-model="filters.rodzaj_rynku">
+                <template x-for="v in lookups.rodzaj_rynku" :key="v">
+                    <option :value="v" x-text="v"></option>
+                </template>
+            </select>
+        </label>
+        <label>Rodzaj transakcji
+            <select multiple size="4" x-model="filters.rodzaj_transakcji">
+                <template x-for="v in lookups.rodzaj_transakcji" :key="v">
+                    <option :value="v" x-text="v"></option>
+                </template>
+            </select>
+        </label>
+        <label>Rodzaj nieruchomości
+            <select multiple size="4" x-model="filters.rodzaj_nieruchomosci">
+                <template x-for="v in lookups.rodzaj_nieruchomosci" :key="v">
+                    <option :value="v" x-text="v"></option>
+                </template>
+            </select>
+        </label>
+    </div>
+    <div class="wb-filter-section">
+        <h3>Lokalizacja</h3>
+        <label>Obręb geodezyjny
+            <select multiple size="5" x-model="filters.obreb">
+                <template x-for="v in lookups.obreb" :key="v">
+                    <option :value="v" x-text="v"></option>
+                </template>
+            </select>
+        </label>
+        <label>Miejscowość
+            <select multiple size="4" x-model="filters.miejscowosc">
+                <template x-for="v in lookups.miejscowosc" :key="v">
+                    <option :value="v" x-text="v"></option>
+                </template>
+            </select>
+        </label>
+        <label>TERYT gminy
+            <select multiple size="3" x-model="filters.teryt_gminy">
+                <template x-for="v in lookups.teryt_gminy" :key="v">
+                    <option :value="v" x-text="v"></option>
+                </template>
+            </select>
+        </label>
+        <label>Adres (zawiera)
+            <input type="text" x-model="filters.adres" placeholder="np. Piotrkowska 100">
+        </label>
+    </div>
+    <div class="wb-filter-section">
+        <h3>Cena i data</h3>
+        <div class="wb-row2">
+            <label>Cena od <input type="number" x-model.number="filters.cena_min" placeholder="0"></label>
+            <label>Cena do <input type="number" x-model.number="filters.cena_max" placeholder="∞"></label>
+        </div>
+        <div class="wb-row2">
+            <label>Cena/m² od <input type="number" x-model.number="filters.cena_m2_min" placeholder="0"></label>
+            <label>Cena/m² do <input type="number" x-model.number="filters.cena_m2_max" placeholder="∞"></label>
+        </div>
+        <div class="wb-row2">
+            <label>Data od <input type="date" x-model="filters.data_od"></label>
+            <label>Data do <input type="date" x-model="filters.data_do"></label>
+        </div>
+    </div>
+    <div class="wb-filter-section">
+        <h3>Notatki</h3>
+        <label>Status notatki
+            <select x-model="filters.has_note_choice">
+                <option value="">— dowolny —</option>
+                <option value="true">Tylko z notatką</option>
+                <option value="false">Tylko bez notatki</option>
+            </select>
+        </label>
+        <label>Szukaj w notatce
+            <input type="text" x-model="filters.notes_search" placeholder="np. weryfikacja">
+        </label>
+    </div>
+    <div class="wb-filter-section">
+        <h3>Jakość danych <span class="wb-quality-icon-inline" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span></h3>
+        <label class="wb-inline-check">
+            <input type="checkbox" x-model="filters.only_verified" @change="page = 1; runQuery()">
+            Tylko zweryfikowane (bez flag)
+        </label>
+        <small class="muted">Pomija transakcje oflagowane jako podejrzane (multi-akt z totalną ceną, brak obiektów, ekstremalna cena/m² itp.). Reszta to dane „czyste" do wyceny porównawczej.</small>
+    </div>
+
+    <div class="wb-filter-section">
+        <h3>Wycofane transakcje</h3>
+        <label class="wb-inline-check">
+            <input type="checkbox" x-model="filters.include_withdrawn">
+            Pokaż transakcje wycofane z portalu
+        </label>
+        <small class="muted">Transakcje oznaczane jako „wycofane z portalu" gdy nowy snapshot GML nie zawiera ich w swoim zakresie dat (a wcześniej były w bazie). Notatki zostają zachowane.</small>
+    </div>
+    <div class="wb-filter-section" x-show="spatial.active">
+        <h3>Obszar na mapie</h3>
+        <button class="btn-ghost btn-sm" @click="clearSpatial()">Wyczyść zaznaczenie obszaru</button>
+    </div>
+</div>
+<div class="wb-sidebar-footer">
+    <button class="btn-ghost btn-sm" @click="resetFilters()">Wyczyść</button>
+    <button class="btn-primary btn-sm" @click="runQuery(); if (window.matchMedia('(max-width: 900px)').matches) filtersOpen = false">Zastosuj</button>
+</div>
+</aside>

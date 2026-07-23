@@ -1,0 +1,778 @@
+{% extends "base.html" %}
+{% block title %}Instrukcja obsługi — RCN Workshop{% endblock %}
+
+{% block topnav %}
+<header class="bg-rcn-primary text-white shadow-sm">
+    <div class="flex items-center gap-4 px-4 py-3">
+        <a href="/" class="font-semibold tracking-tight text-lg">RCN Workshop</a>
+        <span class="opacity-70 text-sm">· Instrukcja obsługi</span>
+        <a href="/workspaces" class="ml-auto text-sm opacity-80 hover:opacity-100">Przejdź do aplikacji →</a>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="instr-wrap" x-data="{ slide: 1, total: 9 }" @keydown.window.arrow-right="slide < total && slide++" @keydown.window.arrow-left="slide > 1 && slide--">
+
+    <div class="instr-progress">
+        <span x-text="`Slajd ${slide} z ${total}`"></span>
+        <div class="instr-dots">
+            <template x-for="n in total" :key="n">
+                <button class="instr-dot" :class="n === slide ? 'active' : ''" @click="slide = n" :aria-label="`Slajd ${n}`"></button>
+            </template>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 1: Powitanie -->
+    <section class="instr-slide" x-show="slide === 1" x-cloak>
+        <div class="instr-content">
+            <div class="instr-num">1</div>
+            <h1>Witamy w RCN Workshop</h1>
+            <p class="instr-lead">Narzędzie dla rzeczoznawców majątkowych do pracy z danymi z Rejestru Cen Nieruchomości.</p>
+
+            <div class="instr-info-grid">
+                <div class="instr-info-card">
+                    <h3>Co znajdziesz</h3>
+                    <ul>
+                        <li>Transakcje z 3 miast: <strong>Łódź</strong> (161 023), <strong>Warszawa</strong> (585 900), <strong>Bełchatów</strong> (26 395)</li>
+                        <li>Filtrowanie po cenie, dacie, typie, powierzchni, lokalizacji</li>
+                        <li>Mapa z bbox/polygon, warstwy działek EGIB</li>
+                        <li>Eksport XLSX/GPKG/CSV</li>
+                    </ul>
+                </div>
+                <div class="instr-info-card">
+                    <h3>Wymagania</h3>
+                    <ul>
+                        <li>Konto użytkownika (admin pełny dostęp / test tylko odczyt)</li>
+                        <li>Przeglądarka Chrome/Firefox/Edge (najnowsza wersja)</li>
+                        <li>Brak instalacji — działa w przeglądarce</li>
+                    </ul>
+                    <p class="muted tiny" style="margin-top:.5rem;">Skontaktuj się z administratorem aby uzyskać dane logowania.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 2: Logowanie -->
+    <section class="instr-slide" x-show="slide === 2" x-cloak>
+        <div class="instr-content">
+            <div class="instr-num">2</div>
+            <h1>Krok 1: Zaloguj się</h1>
+            <p class="instr-lead">Otwórz adres aplikacji otrzymany od administratora w przeglądarce. Zobaczysz stronę powitalną.</p>
+
+            <div class="instr-mockup instr-mockup-splash">
+                <div class="mock-header">
+                    <span class="mock-brand">RCN Workshop</span>
+                </div>
+                <div class="mock-splash-card">
+                    <h3>RCN Workshop</h3>
+                    <p>Narzędzie dla rzeczoznawców majątkowych...</p>
+                    <button class="mock-btn-primary">Zaloguj się i przejdź do aplikacji</button>
+                </div>
+                <div class="instr-arrow">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                </div>
+                <div class="mock-auth-prompt">
+                    <strong>🔒 Zaloguj się</strong>
+                    <div class="mock-input-row">Nazwa użytkownika: <code>admin</code> lub <code>test</code></div>
+                    <div class="mock-input-row">Hasło: <code>•••••••••</code> (otrzymane od administratora)</div>
+                    <button class="mock-btn-small">Zaloguj</button>
+                </div>
+            </div>
+
+            <div class="instr-tip">
+                <strong>Wskazówka:</strong> Konto <code>test</code> ma ograniczenia — tylko odczyt + eksport, max 100 transakcji w koszyku, brak edycji notatek/uploadu.
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 3: Wybór workspace -->
+    <section class="instr-slide" x-show="slide === 3" x-cloak>
+        <div class="instr-content">
+            <div class="instr-num">3</div>
+            <h1>Krok 2: Wybierz miasto (workspace)</h1>
+            <p class="instr-lead">Po zalogowaniu zobaczysz listę dostępnych miast. Klik kafelka otwiera bazę transakcji.</p>
+
+            <div class="instr-mockup instr-mockup-list">
+                <div class="mock-card">
+                    <div class="mock-card-title">Warszawa</div>
+                    <div class="mock-card-stats">585 900 transakcji · 885k działek · 522k budynków</div>
+                    <div class="mock-card-meta">Ostatnia aktualizacja: 2026-04-28</div>
+                </div>
+                <div class="mock-card">
+                    <div class="mock-card-title">Łódź</div>
+                    <div class="mock-card-stats">161 023 transakcji · 203k działek · 262k budynków</div>
+                    <div class="mock-card-meta">Ostatnia aktualizacja: 2026-04-28</div>
+                </div>
+                <div class="mock-card">
+                    <div class="mock-card-title">Bełchatów</div>
+                    <div class="mock-card-stats">26 395 transakcji · 45k działek · 14k budynków</div>
+                    <div class="mock-card-meta">Ostatnia aktualizacja: 2026-04-25</div>
+                </div>
+            </div>
+
+            <div class="instr-tip">
+                Klik w kafelek miasta otwiera workspace z domyślnym widokiem tabeli transakcji.
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 4: Tabela + filtry -->
+    <section class="instr-slide" x-show="slide === 4" x-cloak>
+        <div class="instr-content">
+            <div class="instr-num">4</div>
+            <h1>Krok 3: Przeglądaj i filtruj transakcje</h1>
+            <p class="instr-lead">Domyślny widok to <strong>tabela</strong>. Po prawej stronie panel filtrów (otwierany przyciskiem „Filtruj").</p>
+
+            <div class="instr-mockup instr-mockup-table">
+                <div class="mock-toolbar">
+                    <span><strong>585 900</strong> transakcji w filtrze</span>
+                    <span class="mock-spacer"></span>
+                    <button class="mock-filter-btn">⚙ Filtruj</button>
+                </div>
+                <table class="mock-table">
+                    <thead>
+                        <tr><th>Data</th><th>Adres</th><th>Obręb</th><th>Pow. m²</th><th>Cena</th><th>zł/m²</th><th>Typ</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>2024-05-12</td><td>ulica Złota 44</td><td>50308</td><td class="num">218</td><td class="num">1 950 000</td><td class="num">8 945</td><td>lokal</td></tr>
+                        <tr><td>2024-04-30</td><td>ulica Krucza 12</td><td>50306</td><td class="num">62</td><td class="num">920 000</td><td class="num">14 838</td><td>lokal</td></tr>
+                        <tr class="highlighted"><td>2024-04-15</td><td>ulica Marszałkowska 88</td><td>50305</td><td class="num">120</td><td class="num">2 400 000</td><td class="num">20 000</td><td>lokal</td></tr>
+                        <tr><td>2024-04-10</td><td>ulica Wiertnicza 148</td><td>50533</td><td class="num">1 316</td><td class="num">11 070 000</td><td class="num">8 412</td><td>grunt</td></tr>
+                    </tbody>
+                </table>
+                <div class="mock-sidebar">
+                    <h4>Filtry</h4>
+                    <div class="mock-filter-row">Cena od: <code>500 000</code></div>
+                    <div class="mock-filter-row">Cena do: <code>3 000 000</code></div>
+                    <div class="mock-filter-row">Data od: <code>2024-01-01</code></div>
+                    <div class="mock-filter-row">Typ: <code>lokal</code></div>
+                    <div class="mock-filter-row">☑ Tylko zweryfikowane</div>
+                </div>
+            </div>
+
+            <div class="instr-tip">
+                Klik nagłówka kolumny — sortowanie. Filtry „Cena od/do", „Data od/do", „Typ" zawężają tabelę. Lewa kolumna w tabeli zawiera mini-przyciski (🎯, ▸).
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 5: Wiki + rozwinięcie wiersza -->
+    <section class="instr-slide" x-show="slide === 5" x-cloak>
+        <div class="instr-content">
+            <div class="instr-num">5</div>
+            <h1>Krok 4: Szczegóły transakcji + wiki obiektów</h1>
+            <p class="instr-lead">Klik strzałki <span class="instr-chevron">▸</span> przy dacie → rozwija szczegóły transakcji. Klik ikony łańcuszka <span class="instr-link-icon">🔗</span> → filtruje tabelę do <strong>wszystkich transakcji</strong> tej działki/budynku/lokalu w czasie.</p>
+
+            <div class="instr-mockup instr-mockup-expand">
+                <div class="mock-row-header">
+                    <span class="mock-chevron-open">▾</span>
+                    <strong>2024-04-15</strong> · ulica Marszałkowska 88 · 2 400 000 zł
+                </div>
+                <div class="mock-expand">
+                    <div class="mock-expand-card">
+                        <h5>🟦 Działki <span class="muted">(2)</span></h5>
+                        <div class="mock-expand-item">
+                            <code>146510_8.0305.42</code>
+                            <button class="mock-wiki-btn" title="Wszystkie transakcje tej działki">🔗</button>
+                            <span class="muted">189 m²</span>
+                        </div>
+                        <div class="mock-expand-item">
+                            <code>146510_8.0305.41</code>
+                            <button class="mock-wiki-btn">🔗</button>
+                            <span class="muted">4 402 m²</span>
+                            <span class="instr-egib-badge">📐 z EGIB</span>
+                        </div>
+                    </div>
+                    <div class="mock-expand-card">
+                        <h5>🟨 Budynki <span class="muted">(1)</span></h5>
+                        <div class="mock-expand-item">
+                            <code>146510_8.0305.41.2_BUD</code>
+                            <button class="mock-wiki-btn">🔗</button>
+                            <span class="muted">mieszkalny</span>
+                        </div>
+                    </div>
+                    <div class="mock-expand-card">
+                        <h5>🟢 Lokale <span class="muted">(1)</span></h5>
+                        <div class="mock-expand-item">
+                            <code>...41.2_BUD.504_LOK</code>
+                            <button class="mock-wiki-btn">🔗</button>
+                            <span class="muted">120 m² · 4 izby · piętro 12</span>
+                            <span class="instr-egib-badge instr-inh-badge">📍 z budynku</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="instr-tip">
+                <strong>Wiki:</strong> chcesz zobaczyć historię cen tego samego lokalu? Klik 🔗 → tabela pokazuje wszystkie transakcje w czasie.
+                <br><strong>Badge:</strong> <span class="instr-egib-badge">📐 z EGIB</span> = lokalizacja uzupełniona z bazy EGIB (operator nie wpisał w GML). <span class="instr-egib-badge instr-inh-badge">📍 z budynku</span> = lokal dziedziczy lokalizację z budynku.
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 6: Mapa + BBox -->
+    <section class="instr-slide" x-show="slide === 6" x-cloak>
+        <div class="instr-content">
+            <div class="instr-num">6</div>
+            <h1>Krok 5: Mapa transakcji</h1>
+            <p class="instr-lead">Toggle <strong>[🗺 Mapa | 📋 Tabela]</strong> w pasku górnym. Mapa pokazuje markery transakcji, warstwy działek RCN/EGIB, narzędzie BBox do filtrowania obszarem.</p>
+
+            <div class="instr-mockup instr-mockup-map">
+                <div class="mock-map-canvas">
+                    <div class="mock-map-grid"></div>
+                    <div class="mock-marker" style="top:30%; left:25%;"></div>
+                    <div class="mock-marker" style="top:35%; left:35%;"></div>
+                    <div class="mock-marker" style="top:50%; left:45%;"></div>
+                    <div class="mock-marker mock-marker-big" style="top:55%; left:55%;">12</div>
+                    <div class="mock-marker" style="top:60%; left:60%;"></div>
+                    <div class="mock-marker" style="top:65%; left:65%;"></div>
+                    <div class="mock-bbox" style="top:25%; left:20%; width:40%; height:35%;">
+                        <span class="mock-bbox-label">BBox</span>
+                    </div>
+                    <div class="mock-tools">
+                        <button title="Rysuj prostokąt">▭</button>
+                        <button title="Rysuj polygon">⬡</button>
+                        <button title="Pełen widok">⛶</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="instr-tip">
+                <strong>Krok po kroku:</strong>
+                <ol>
+                    <li>Klik <strong>▭ Rysuj prostokąt</strong> w toolbar mapy.</li>
+                    <li>Zaznacz interesujący obszar przeciągając myszą.</li>
+                    <li>Tabela natychmiast filtruje się do transakcji wewnątrz prostokąta. Pojawia się chip „BBox · aktywny" na pasku filtrów.</li>
+                </ol>
+                Liczba przy markerze (np. <strong>12</strong>) oznacza klaster — kliknij żeby rozwinąć w wachlarz.
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 7: Modal "Pokaż na mapie" + Sąsiedzi -->
+    <section class="instr-slide" x-show="slide === 7" x-cloak>
+        <div class="instr-content">
+            <div class="instr-num">7</div>
+            <h1>Krok 6: 🎯 Pokaż na mapie + Sąsiedzi w X m</h1>
+            <p class="instr-lead">W tabeli klikaj ikonę <strong>🎯</strong> w pierwszej kolumnie wiersza — otworzy modal mapy z fokusem na tej transakcji oraz sąsiadami w okolicy.</p>
+
+            <div class="instr-mockup instr-mockup-popup">
+                <div class="mock-popup-window">
+                    <div class="mock-popup-header">
+                        <span class="instr-egib-badge instr-focus-badge">⭐ FOCUSED</span>
+                        <span class="muted">2024-04-15</span>
+                    </div>
+                    <div class="mock-popup-addr">ulica Marszałkowska 88</div>
+                    <div class="mock-popup-prices">
+                        <div><span class="muted">Cena</span><br><strong>2 400 000 zł</strong></div>
+                        <div><span class="muted">Cena/m²</span><br><strong>20 000 zł</strong></div>
+                    </div>
+                    <div class="mock-popup-actions">
+                        <button class="mock-btn-primary-small">+ Do kolekcji</button>
+                        <button class="mock-btn-secondary-small">W tabeli</button>
+                    </div>
+                    <div class="mock-popup-neighbors">
+                        <span class="muted small">Sąsiedzi w:</span>
+                        <button class="mock-radius-btn">50m</button>
+                        <button class="mock-radius-btn active">100m</button>
+                        <button class="mock-radius-btn">250m</button>
+                        <button class="mock-radius-btn">500m</button>
+                    </div>
+                    <div class="mock-popup-links">
+                        <a class="mock-link-btn">👁 Street View</a>
+                        <a class="mock-link-btn">📍 Geoportal</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="instr-tip">
+                <strong>Sąsiedzi w X m</strong> — ten przycisk to klucz wyceny porównawczej. Klik <strong>100m</strong> → tabela natychmiast pokazuje wszystkie transakcje w promieniu 100 metrów od wycenianej. Pojawia się chip „Sąsiedzi 100 m od ulica Marszałkowska 88".
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 8: Koszyk + Eksport -->
+    <section class="instr-slide" x-show="slide === 8" x-cloak>
+        <div class="instr-content">
+            <div class="instr-num">8</div>
+            <h1>Krok 7: Koszyk + Eksport XLSX</h1>
+            <p class="instr-lead">Zaznacz wybrane transakcje (☑ checkbox per wiersz) i wyeksportuj do pliku XLSX.</p>
+
+            <div class="instr-mockup instr-mockup-cart">
+                <div class="mock-cart-header">
+                    <h4>📦 Twoja kolekcja <span class="mock-badge">12 transakcji</span></h4>
+                </div>
+                <div class="mock-cart-list">
+                    <div class="mock-cart-item">
+                        <span class="mock-cart-addr">ulica Złota 44</span>
+                        <span class="mock-cart-price">1 950 000 zł</span>
+                        <span class="muted small">8 945 zł/m²</span>
+                    </div>
+                    <div class="mock-cart-item">
+                        <span class="mock-cart-addr">ulica Krucza 12</span>
+                        <span class="mock-cart-price">920 000 zł</span>
+                        <span class="muted small">14 838 zł/m²</span>
+                    </div>
+                    <div class="mock-cart-item">
+                        <span class="mock-cart-addr">ulica Marszałkowska 88</span>
+                        <span class="mock-cart-price">2 400 000 zł</span>
+                        <span class="muted small">20 000 zł/m²</span>
+                    </div>
+                    <div class="muted small" style="text-align:center; padding: .5rem;">+9 więcej...</div>
+                </div>
+                <div class="mock-cart-footer">
+                    <button class="mock-btn-primary-small">📥 Eksport XLSX</button>
+                    <button class="mock-btn-secondary-small">📥 Eksport GPKG</button>
+                    <button class="mock-btn-secondary-small">📥 CSV</button>
+                </div>
+            </div>
+
+            <div class="instr-tip">
+                <strong>Limit dla testowego konta:</strong> max 100 transakcji w koszyku. Admin bez limitu.<br>
+                <strong>XLSX</strong> ma 6 arkuszy: Podsumowanie, Raport zbiorczy, Transakcje, Działki, Budynki, Lokale.
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SLAJD 9: Quality flags -->
+    <section class="instr-slide" x-show="slide === 9" x-cloak>
+        <div class="instr-content">
+            <div class="instr-num">9</div>
+            <h1>Krok 8: ⚠ Flagi jakości danych</h1>
+            <p class="instr-lead">Niektóre transakcje są oflagowane jako podejrzane (błędy operatora GML). Sygnał <strong>⚠</strong> obok ceny ostrzega rzeczoznawcę.</p>
+
+            <div class="instr-mockup instr-mockup-quality">
+                <table class="mock-table-sm">
+                    <tr>
+                        <td>2017-07-21</td>
+                        <td>Złota 44</td>
+                        <td class="num">183 982 922 zł <span class="instr-warn-badge">⚠</span></td>
+                        <td>lokalowa</td>
+                    </tr>
+                    <tr>
+                        <td>2024-05-12</td>
+                        <td>Krucza 12</td>
+                        <td class="num">920 000 zł</td>
+                        <td>lokalowa</td>
+                    </tr>
+                </table>
+                <div class="mock-tooltip">
+                    <strong>Uwagi co do jakości danych:</strong>
+                    <ul>
+                        <li>Cena prawdopodobnie z aktu wielolokalowego (operator wpisał total aktu zamiast cen per-obiekt)</li>
+                        <li>Cena/m² poza realistycznym zakresem (>30k zł/m² dla lokalu)</li>
+                    </ul>
+                    <em>Użyj z ostrożnością do wyceny porównawczej.</em>
+                </div>
+            </div>
+
+            <div class="instr-info-grid">
+                <div class="instr-info-card">
+                    <h3>6 typów flag</h3>
+                    <ul style="font-size:.85rem;">
+                        <li><strong>multi_object_act</strong> — multi-akt z totalną ceną</li>
+                        <li><strong>extreme_price_per_m2</strong> — cena poza realistycznym zakresem</li>
+                        <li><strong>zero_or_null_price</strong> — cena 0/NULL (darowizna)</li>
+                        <li><strong>no_objects</strong> — transakcja bez obiektów</li>
+                        <li><strong>zero_area</strong> — brak powierzchni</li>
+                        <li><strong>total_price_split_suspect</strong> — bug skali</li>
+                    </ul>
+                </div>
+                <div class="instr-info-card">
+                    <h3>Filtr „Tylko zweryfikowane"</h3>
+                    <p style="font-size:.85rem;">W panelu filtrów jest checkbox <strong>Tylko zweryfikowane (bez flag)</strong>. Pokazuje transakcje czyste do wyceny porównawczej.</p>
+                    <p class="muted tiny" style="margin-top:.5rem;">Łódź: 91 546 (57%) · Bełchatów: 80% · Warszawa: 51%</p>
+                </div>
+            </div>
+
+            <div class="instr-tip" style="background: var(--color-primary-50); border-color: var(--color-primary-300);">
+                <strong>Koniec instrukcji.</strong> Aby zacząć pracę: <a href="/workspaces" style="color: var(--color-primary-700); font-weight: 600;">→ Przejdź do aplikacji</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Navigation -->
+    <div class="instr-nav">
+        <button class="instr-nav-btn" @click="slide > 1 && slide--" :disabled="slide === 1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Poprzedni
+        </button>
+        <span class="muted">Użyj strzałek ← → na klawiaturze</span>
+        <button class="instr-nav-btn" @click="slide < total && slide++" :disabled="slide === total">
+            Następny
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.instr-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1rem 1rem 2rem;
+    flex: 1;
+}
+.instr-progress {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    color: #64748b;
+    font-size: .85rem;
+}
+.instr-dots {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+}
+.instr-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    border: none; cursor: pointer;
+    transition: all .15s;
+}
+.instr-dot.active { background: #1f4e79; transform: scale(1.3); }
+.instr-dot:hover { background: #94a3b8; }
+
+.instr-slide {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 2.5rem 2.5rem 2rem;
+    min-height: 500px;
+    box-shadow: 0 4px 16px rgba(30, 58, 138, 0.06);
+}
+.instr-content { position: relative; }
+.instr-num {
+    position: absolute;
+    top: -1.5rem; right: -1rem;
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, #1f4e79, #2D5DA8);
+    color: white;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; font-weight: 700;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+}
+.instr-content h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1f4e79;
+    margin: 0 4rem .5rem 0;
+    letter-spacing: -0.01em;
+}
+.instr-lead {
+    font-size: 1.05rem;
+    color: #475569;
+    line-height: 1.6;
+    margin: 0 0 1.5rem;
+}
+
+/* Info cards */
+.instr-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+@media (max-width: 700px) { .instr-info-grid { grid-template-columns: 1fr; } }
+.instr-info-card {
+    padding: 1.25rem 1.5rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+.instr-info-card h3 {
+    font-size: 1rem; font-weight: 600; color: #1e293b;
+    margin: 0 0 .5rem;
+}
+.instr-info-card ul { margin: 0; padding-left: 1.2rem; color: #475569; line-height: 1.7; font-size: .92rem; }
+.instr-info-card p { margin: 0.5rem 0; color: #475569; line-height: 1.6; font-size: .92rem; }
+
+/* Tip box */
+.instr-tip {
+    margin-top: 1.5rem;
+    padding: 1rem 1.25rem;
+    background: #fef3c7;
+    border-left: 3px solid #f59e0b;
+    border-radius: 6px;
+    color: #78350f;
+    font-size: .9rem;
+    line-height: 1.6;
+}
+.instr-tip ol { margin: .5rem 0 0; padding-left: 1.5rem; }
+.instr-tip ol li { margin: .25rem 0; }
+
+/* === MOCKUPS === */
+.instr-mockup {
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1.5rem 0;
+    position: relative;
+}
+
+/* Splash mockup */
+.instr-mockup-splash {
+    display: flex; flex-direction: column; align-items: center; gap: 1rem;
+    padding: 1.5rem;
+}
+.mock-header {
+    background: #1f4e79; color: white; padding: .5rem 1rem;
+    border-radius: 6px 6px 0 0; align-self: stretch; margin: -1.5rem -1.5rem 0;
+}
+.mock-brand { font-weight: 600; }
+.mock-splash-card {
+    text-align: center; padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, #f8fafc, #eff4fb);
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    width: 80%;
+}
+.mock-splash-card h3 { color: #1f4e79; margin: 0 0 .25rem; font-size: 1.4rem; }
+.mock-splash-card p { color: #64748b; margin: 0 0 1rem; font-size: .85rem; }
+.mock-btn-primary {
+    background: #1f4e79; color: white; padding: 8px 18px;
+    border-radius: 8px; border: none; font-weight: 600; font-size: .9rem;
+    cursor: default;
+}
+.instr-arrow svg { width: 32px; height: 32px; color: #94a3b8; }
+.mock-auth-prompt {
+    background: #fef9c3;
+    border: 2px dashed #ca8a04;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    width: 70%;
+}
+.mock-auth-prompt strong { display: block; margin-bottom: .5rem; color: #854d0e; }
+.mock-input-row { padding: .25rem 0; font-size: .85rem; color: #713f12; }
+.mock-input-row code { background: white; padding: 2px 6px; border-radius: 4px; }
+.mock-btn-small {
+    margin-top: .5rem; background: #ca8a04; color: white; border: none;
+    padding: 6px 14px; border-radius: 6px; font-weight: 600; font-size: .8rem;
+}
+
+/* List mockup */
+.instr-mockup-list {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;
+}
+@media (max-width: 800px) { .instr-mockup-list { grid-template-columns: 1fr; } }
+.mock-card {
+    padding: 1rem; background: white; border: 1px solid #e2e8f0;
+    border-radius: 10px; cursor: default;
+    transition: all .15s;
+}
+.mock-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.mock-card-title { font-size: 1.1rem; font-weight: 600; color: #1f4e79; margin-bottom: .35rem; }
+.mock-card-stats { font-size: .82rem; color: #475569; margin-bottom: .35rem; line-height: 1.4; }
+.mock-card-meta { font-size: .75rem; color: #94a3b8; }
+
+/* Table mockup */
+.instr-mockup-table { display: grid; grid-template-columns: 1fr 200px; gap: 1rem; padding: 0; border: none; }
+.mock-toolbar {
+    grid-column: 1; display: flex; align-items: center; gap: 1rem;
+    padding: .5rem 1rem; background: #f8fafc; border: 1px solid #cbd5e1;
+    border-radius: 8px 8px 0 0; border-bottom: none; font-size: .9rem;
+}
+.mock-spacer { flex: 1; }
+.mock-filter-btn {
+    background: #1f4e79; color: white; padding: 6px 14px;
+    border: none; border-radius: 6px; font-weight: 600; font-size: .8rem;
+    cursor: default;
+}
+.mock-table {
+    grid-column: 1; width: 100%; border-collapse: collapse;
+    background: white; border: 1px solid #cbd5e1; border-radius: 0 0 8px 8px;
+    border-top: none; overflow: hidden;
+}
+.mock-table th { background: #f1f5f9; padding: 8px 12px; text-align: left; font-size: .82rem; color: #475569; border-bottom: 1px solid #cbd5e1; }
+.mock-table td { padding: 8px 12px; font-size: .85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+.mock-table td.num { text-align: right; font-family: 'Geist Mono', monospace; }
+.mock-table tr.highlighted { background: #fef9c3; }
+.mock-sidebar {
+    grid-column: 2; padding: 1rem; background: #f8fafc;
+    border: 1px solid #cbd5e1; border-radius: 8px; align-self: start;
+}
+.mock-sidebar h4 { margin: 0 0 .75rem; font-size: .9rem; color: #1f4e79; }
+.mock-filter-row { font-size: .8rem; padding: .35rem 0; color: #475569; border-bottom: 1px dashed #e2e8f0; }
+.mock-filter-row code { background: white; padding: 1px 6px; border-radius: 3px; font-size: .8rem; }
+
+/* Expand mockup */
+.instr-chevron, .instr-link-icon { display: inline-block; padding: 2px 8px; background: #eff4fb; color: #1f4e79; border-radius: 4px; font-weight: 700; }
+.mock-row-header { padding: 8px 12px; background: #fef9c3; border-bottom: 1px solid #f1f5f9; }
+.mock-chevron-open { display: inline-block; width: 18px; height: 18px; background: #1f4e79; color: white; border-radius: 4px; text-align: center; font-weight: 700; margin-right: .5rem; }
+.mock-expand { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; padding: 1rem; background: #f8fafc; }
+@media (max-width: 800px) { .mock-expand { grid-template-columns: 1fr; } }
+.mock-expand-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: .75rem; }
+.mock-expand-card h5 { margin: 0 0 .5rem; font-size: .85rem; font-weight: 600; }
+.mock-expand-item { display: flex; align-items: center; gap: .5rem; padding: 4px 0; font-size: .78rem; flex-wrap: wrap; }
+.mock-expand-item code { background: #f1f5f9; padding: 1px 6px; border-radius: 3px; font-size: .75rem; }
+.mock-wiki-btn {
+    width: 22px; height: 22px; border: 1px solid #cbd5e1;
+    background: white; border-radius: 4px; cursor: default;
+    font-size: .85rem; padding: 0; color: #1f4e79;
+}
+.instr-egib-badge {
+    display: inline-block; background: #FFFBEB; color: #B45309;
+    border: 1px solid #FEF3C7; padding: 1px 6px; border-radius: 9999px;
+    font-size: 10px; font-weight: 600;
+}
+.instr-inh-badge { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+.instr-focus-badge { background: #fef9c3; color: #854d0e; border-color: #fde68a; }
+
+/* Map mockup */
+.instr-mockup-map { padding: 0; }
+.mock-map-canvas {
+    height: 380px; background: #cfdaff; position: relative;
+    border-radius: 10px; overflow: hidden;
+}
+.mock-map-grid {
+    position: absolute; inset: 0;
+    background-image:
+        linear-gradient(to right, rgba(255,255,255,.3) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,.3) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+.mock-marker {
+    position: absolute; width: 14px; height: 14px;
+    background: #ea580c; border: 2px solid white; border-radius: 50%;
+    box-shadow: 0 0 0 1px #ea580c;
+}
+.mock-marker-big {
+    width: 32px; height: 32px;
+    background: #1f4e79; color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .75rem; font-weight: 700;
+}
+.mock-bbox {
+    position: absolute; border: 2px dashed #1f4e79;
+    background: rgba(31, 78, 121, .08);
+    border-radius: 4px;
+}
+.mock-bbox-label {
+    position: absolute; top: -22px; left: 0;
+    background: #1f4e79; color: white; font-size: .7rem; padding: 2px 6px;
+    border-radius: 3px; font-weight: 600;
+}
+.mock-tools {
+    position: absolute; top: 10px; right: 10px;
+    display: flex; flex-direction: column; gap: 4px;
+    background: white; border: 1px solid #cbd5e1; border-radius: 6px;
+    padding: 4px;
+}
+.mock-tools button {
+    width: 28px; height: 28px; background: white; border: none;
+    border-radius: 4px; cursor: default; font-size: .9rem;
+}
+.mock-tools button:hover { background: #f1f5f9; }
+
+/* Popup mockup */
+.instr-mockup-popup { display: flex; justify-content: center; padding: 2rem; background: #cfdaff; }
+.mock-popup-window {
+    width: 360px; background: white; border: 1px solid #cbd5e1;
+    border-radius: 10px; padding: 1rem; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+.mock-popup-header { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+.mock-popup-addr { font-weight: 600; color: #1e293b; margin-bottom: .75rem; }
+.mock-popup-prices {
+    display: grid; grid-template-columns: 1fr 1fr; gap: .5rem;
+    background: #f8fafc; padding: .75rem; border-radius: 8px; margin-bottom: .75rem;
+    font-size: .85rem;
+}
+.mock-popup-prices strong { color: #1f4e79; font-size: 1rem; }
+.mock-popup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .75rem; }
+.mock-btn-primary-small, .mock-btn-secondary-small {
+    padding: 6px 10px; border-radius: 6px; font-size: .78rem;
+    font-weight: 600; cursor: default; border: 1px solid;
+}
+.mock-btn-primary-small { background: #f59e0b; color: #292524; border-color: #f59e0b; }
+.mock-btn-secondary-small { background: white; color: #1e293b; border-color: #cbd5e1; }
+.mock-popup-neighbors {
+    display: flex; align-items: center; gap: 4px; padding: .5rem 0;
+    border-top: 1px solid #f1f5f9; flex-wrap: nowrap;
+}
+.mock-popup-neighbors .small { font-size: .75rem; }
+.mock-radius-btn {
+    flex: 1; padding: 4px 6px; background: white;
+    border: 1px solid #c7d2e8; color: #1f4e79; border-radius: 4px;
+    font-size: .72rem; font-weight: 600; cursor: default;
+}
+.mock-radius-btn.active { background: #1f4e79; color: white; }
+.mock-popup-links { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; padding-top: .5rem; border-top: 1px solid #f1f5f9; }
+.mock-link-btn {
+    padding: 4px 8px; background: white; border: 1px solid #e2e8f0;
+    border-radius: 6px; text-align: center; font-size: .75rem; color: #1e293b;
+    text-decoration: none; cursor: default;
+}
+
+/* Cart mockup */
+.instr-mockup-cart { max-width: 580px; margin-left: auto; margin-right: auto; }
+.mock-cart-header h4 { margin: 0; color: #1f4e79; font-size: 1rem; display: flex; align-items: center; gap: .5rem; }
+.mock-badge {
+    background: #FEF3C7; color: #B45309; padding: 2px 10px;
+    border-radius: 9999px; font-size: .75rem; font-weight: 600;
+    font-family: 'Geist Mono', monospace;
+}
+.mock-cart-list { margin: 1rem 0; border: 1px solid #e2e8f0; border-radius: 8px; }
+.mock-cart-item {
+    display: grid; grid-template-columns: 1fr 130px 100px;
+    align-items: center; gap: .5rem;
+    padding: .6rem 1rem; border-bottom: 1px solid #f1f5f9;
+    font-size: .85rem;
+}
+.mock-cart-item:last-child { border-bottom: none; }
+.mock-cart-addr { font-weight: 500; color: #1e293b; }
+.mock-cart-price { font-family: 'Geist Mono', monospace; font-weight: 600; color: #1f4e79; text-align: right; }
+.mock-cart-footer { display: flex; gap: .5rem; padding-top: .5rem; border-top: 1px solid #e2e8f0; }
+
+/* Quality mockup */
+.instr-mockup-quality { padding: 0; border: none; }
+.mock-table-sm { width: 100%; border-collapse: collapse; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
+.mock-table-sm td { padding: 8px 12px; font-size: .85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+.mock-table-sm td.num { text-align: right; font-family: 'Geist Mono', monospace; }
+.instr-warn-badge {
+    display: inline-block; width: 18px; height: 18px;
+    background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+    border-radius: 4px; text-align: center; font-size: .75rem;
+    margin-left: 6px; line-height: 16px;
+}
+.mock-tooltip {
+    background: #fef2f2; border: 1px solid #fecaca;
+    color: #b91c1c; padding: 1rem 1.25rem; border-radius: 8px; font-size: .9rem;
+}
+.mock-tooltip ul { margin: .5rem 0; padding-left: 1.5rem; }
+.mock-tooltip em { display: block; margin-top: .5rem; font-style: italic; opacity: .85; }
+
+/* Navigation */
+.instr-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 1.5rem; padding: 0 .5rem;
+}
+.instr-nav-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; background: white; border: 1px solid #cbd5e1;
+    border-radius: 8px; font-weight: 600; color: #1e293b; cursor: pointer;
+    transition: all .15s;
+}
+.instr-nav-btn:hover:not(:disabled) {
+    background: #f8fafc; border-color: #1f4e79; color: #1f4e79;
+    transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,.06);
+}
+.instr-nav-btn:disabled { opacity: .4; cursor: not-allowed; }
+.instr-nav-btn svg { width: 16px; height: 16px; }
+</style>
+{% endblock %}

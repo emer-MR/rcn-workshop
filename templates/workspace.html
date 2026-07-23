@@ -1,0 +1,1087 @@
+{% extends "base.html" %}
+{% block title %}{{ workspace_name or workspace_id }} — RCN Workshop{% endblock %}
+{# Workspace view ma własny topbar (.wb-topbar) z brand + Admin dropdown,
+   więc granatowy header z base.html jest zbędny. #}
+{% block topnav %}{% endblock %}
+{% block content %}
+<section x-data="workspaceView('{{ workspace_id }}')" x-init="boot()"
+         class="workspace workspace-b relative h-full min-h-0 overflow-hidden">
+
+<div class="wb-root">
+
+    <header class="wb-topbar">
+        <div class="wb-topbar-left">
+            <a href="/workspaces" class="wb-brand-link" title="Wszystkie workspaces">
+                <span class="wb-brand-logo" aria-hidden="true">RCN</span>
+                <span class="wb-brand-text">Workshop <small>· dla rzeczoznawców</small></span>
+            </a>
+            {% if is_beta %}<span class="rcn-beta-badge" title="Wersja testowa {{ app_version }} — może zawierać błędy">BETA</span>{% endif %}
+            <div class="wb-topbar-divider" aria-hidden="true"></div>
+            <div class="wb-workspace-block">
+                <span class="wb-workspace-name" x-text="info.name || workspaceId"></span>
+                <span class="wb-workspace-stats">
+                    <span class="wb-stat"><span class="wb-stat-value" x-text="(info.transaction_count || 0).toLocaleString('pl-PL')"></span> transakcji</span>
+                    <span class="wb-stat"><span class="wb-stat-value" x-text="(info.plot_count || 0).toLocaleString('pl-PL')"></span> działek</span>
+                    <span class="wb-stat"><span class="wb-stat-value" x-text="(info.building_count || 0).toLocaleString('pl-PL')"></span> budynków</span>
+                    <span class="wb-stat"><span class="wb-stat-value" x-text="(info.local_count || 0).toLocaleString('pl-PL')"></span> lokali</span>
+                </span>
+            </div>
+        </div>
+        {# Faza 4: segment control [Mapa | Tabela] -- toggle viewMode.
+           Centrowany dzięki justify-content:space-between na .wb-topbar (3 dzieci). #}
+        <div class="wb-view-toggle" role="tablist" aria-label="Tryb widoku">
+            <button class="wb-view-btn" :class="viewMode === 'map' ? 'active' : ''"
+                    @click="setViewMode('map')" role="tab" :aria-selected="viewMode === 'map'"
+                    title="Widok mapowy (Alt+M)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                    <line x1="8" y1="2" x2="8" y2="18"/>
+                    <line x1="16" y1="6" x2="16" y2="22"/>
+                </svg>
+                <span>Mapa</span>
+            </button>
+            <button class="wb-view-btn" :class="viewMode === 'table' ? 'active' : ''"
+                    @click="setViewMode('table')" role="tab" :aria-selected="viewMode === 'table'"
+                    title="Widok tabelaryczny (Alt+T)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="3" y1="15" x2="21" y2="15"/>
+                    <line x1="9" y1="3" x2="9" y2="21"/>
+                    <line x1="15" y1="3" x2="15" y2="21"/>
+                </svg>
+                <span>Tabela</span>
+            </button>
+            <a href="/workspaces" class="wb-view-btn wb-change-ws" title="Powrót do listy workspace'ów">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="15 18 9 12 15 6"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                <span>Zmień workspace</span>
+            </a>
+        </div>
+        <div class="wb-topbar-right">
+            <button class="wb-cart-toggle" @click="cartOpen = true"
+                    :class="selectedIds.size > 0 ? 'has-items' : ''"
+                    title="Twoja kolekcja transakcji do eksportu"
+                    :aria-label="'Twoja kolekcja: ' + selectedIds.size + ' transakcji'">
+                <span class="wb-cart-icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                </span>
+                <span>Kolekcja</span>
+                <span class="wb-cart-count" x-text="selectedIds.size"></span>
+            </button>
+            <span class="wb-role-badge" x-show="!isAdmin" title="Jesteś zalogowany jako readonly -- upload/edycja notatek niedostępne">👁 readonly</span>
+            <div class="wb-topbar-divider" aria-hidden="true"></div>
+            <div class="wb-admin-dropdown" x-data="{ open: false }" @click.outside="open = false">
+                <button class="btn-ghost btn-sm" @click="open = !open" :class="open ? 'active' : ''" :aria-expanded="open" aria-haspopup="menu" :title="isAdmin ? 'Menu admina' : 'Menu konta'">
+                    <svg x-show="isAdmin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <svg x-show="!isAdmin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span x-text="isAdmin ? 'Admin' : 'Konto'"></span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-caret" :style="open ? 'transform: rotate(180deg)' : ''" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="wb-admin-menu" x-show="open" x-transition role="menu">
+                    <a href="/workspaces" class="wb-admin-item" role="menuitem">📁 Workspaces</a>
+                    {% if survey_url %}
+                    <a href="/ankieta" class="wb-admin-item" role="menuitem" target="_blank" rel="noopener">💬 Podziel się opinią</a>
+                    {% endif %}
+                    <button class="wb-admin-item" @click="openUpload = true; open = false" role="menuitem" x-show="isAdmin">⬆ Upload GML</button>
+                    <button class="wb-admin-item" @click="layersAdminOpen = true; loadPoiInfo(); open = false" role="menuitem" x-show="isAdmin">🗺 Warstwy GPKG i POI</button>
+                    <button class="wb-admin-item" @click="wbOpenQualityThresholds(); open = false" role="menuitem" x-show="isAdmin">⚙ Progi jakości danych</button>
+                    <a :href="'/workspaces/' + workspaceId + '/settings'" class="wb-admin-item" role="menuitem" x-show="isAdmin">🔧 Ustawienia workspace</a>
+                    <a href="/help" class="wb-admin-item" role="menuitem">📖 Instrukcja obsługi</a>
+                    <div class="wb-admin-divider" role="separator"></div>
+                    <a href="/logout" class="wb-admin-item wb-admin-logout" role="menuitem">🚪 Wyloguj <span class="muted tiny" x-text="'(' + me.username + ')'"></span></a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    {# Workspace lock overlay -- pełnoekranowy, pokazuje się gdy w tle trwa
+       proces (import GML / enrich-egib / compute-flags / geocoding). Blokuje
+       interakcje z mapą i tabelą żeby uniknąć segfault Fiona+pyproj
+       (custom-layers .geojson) i niespójnych snapshotów tx_cache podczas
+       refresh. Polling /api/workspaces/{id}/busy co 3s w workspace.js;
+       po unlock auto-reload strony. #}
+    <div x-show="busy.active" x-cloak class="ws-lock-overlay" role="alert" aria-live="assertive">
+        <div class="ws-lock-card">
+            <div class="ws-lock-spinner" aria-hidden="true"></div>
+            <h2>Workspace zablokowany</h2>
+            <p>Trwa: <strong x-text="busy.label"></strong></p>
+            <p class="muted tiny">
+                Czas: <span x-text="formatBusyDuration(busy.duration_s)"></span>
+                <template x-if="busy.triggered_by"><span> · uruchomił: <strong x-text="busy.triggered_by"></strong></span></template>
+                <template x-if="busy.kind === 'import' && busy.progress_pct"><span> · postęp: <strong x-text="busy.progress_pct + '%'"></strong></span></template>
+            </p>
+            <p>Mapa, tabela, eksporty i podgląd transakcji są tymczasowo niedostępne.<br>Strona odświeży się automatycznie po zakończeniu procesu.</p>
+            <p>
+                <a :href="'/workspaces/' + workspaceId + '/settings'" class="btn-primary">Otwórz Settings →</a>
+                <a href="/workspaces" class="btn-ghost">Wróć do listy</a>
+            </p>
+        </div>
+    </div>
+
+    {# Live banner z postępem aktywnego importu (status processing/queued).
+       Renderuje się z imports[] pollowanych co 2s przez loadImports() w workspace.js.
+       Znika automatycznie gdy import skończy się (success/failed). #}
+    <template x-if="imports.length && (imports[0].status === 'processing' || imports[0].status === 'queued')">
+        <div class="wb-import-banner" role="status" aria-live="polite">
+            <div class="wb-import-banner-info">
+                <span class="wb-import-banner-spinner" aria-hidden="true"></span>
+                <strong>Trwa import:</strong>
+                <span class="wb-import-banner-file" x-text="imports[0].original_filename"></span>
+                <span class="wb-import-banner-stage muted" x-show="imports[0].stage" x-text="'· ' + imports[0].stage"></span>
+            </div>
+            <div class="wb-import-banner-progress">
+                <div class="progress-bar"><div class="progress-fill" :style="`width:${imports[0].progress_pct || 0}%`"></div></div>
+                <span class="wb-import-banner-pct" x-text="(imports[0].progress_pct || 0) + '%'"></span>
+            </div>
+        </div>
+    </template>
+
+    {# Faza 4: oba widoki (mapa + tabela) renderują się w DOM, sterowane x-show.
+       To zachowuje pełen Alpine state przy toggle (filtry, selekcja, scroll). #}
+    <div class="wb-canvas" :class="{'sidebar-collapsed': filtersCollapsed}"
+         x-show="viewMode === 'map'" x-cloak>
+        <div id="map"></div>
+
+        {# Miarka -- pomiar odległości: klik punkt A (np. POI), klik punkt B (np. transakcja) #}
+        <div class="wb-measure-ctrl" @keydown.escape.window="if (measureActive) wbToggleMeasure()">
+            <button class="wb-measure-btn" :class="{'active': measureActive}"
+                    @click="wbToggleMeasure()"
+                    title="Pomiar odległości: kliknij dwa punkty na mapie (np. szkołę z warstwy POI i nieruchomość)">
+                📏 Zmierz odległość
+            </button>
+            <button class="wb-measure-btn" x-show="measureHasResult" x-cloak
+                    @click="wbClearMeasure()" title="Usuń pomiary z mapy">✕ Wyczyść pomiar</button>
+            <span class="wb-measure-hint" x-show="measureActive" x-cloak
+                  x-text="measurePending ? 'Teraz kliknij punkt docelowy' : 'Kliknij pierwszy punkt (np. POI lub transakcję)'"></span>
+        </div>
+
+        {# PR8 fix2: plansza informacyjna gdy zoom <14 (mapa nie pokazuje markerow
+           zeby uniknac chaos pinkow dla calej Lodzi). User wie czemu mapa pusta. #}
+        <div class="wb-zoom-hint" x-show="_showZoomHint" x-cloak>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <line x1="11" y1="8" x2="11" y2="14"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+            <div class="wb-zoom-hint-title">Przybliż mapę żeby zobaczyć transakcje</div>
+            <div class="wb-zoom-hint-meta">
+                <strong x-text="queryResult.total.toLocaleString('pl-PL')"></strong> transakcji w aktualnym filtrze
+            </div>
+            <button class="btn-secondary btn-sm"
+                    @click="wbZoomToFirstResult()"
+                    :disabled="(queryResult.items || []).length === 0"
+                    title="Przybliż mapę do pierwszej transakcji w aktualnym filtrze">
+                Przybliż
+            </button>
+        </div>
+
+
+        <div class="wb-drawer" :class="wbDrawerClass()" :style="wbDrawerStyle()">
+            <div class="wb-drawer-handle" @mousedown="wbDragStart($event)" title="Przeciągnij, aby zmienić wysokość"></div>
+            <div class="wb-drawer-header" :class="drawerHeaderCollapsed ? 'is-toolbar-collapsed' : ''">
+                <button class="wb-drawer-toolbar-toggle"
+                        @click="drawerHeaderCollapsed = !drawerHeaderCollapsed"
+                        :title="drawerHeaderCollapsed ? 'Pokaż pasek narzędzi' : 'Schowaj pasek narzędzi'"
+                        :aria-label="drawerHeaderCollapsed ? 'Pokaż pasek narzędzi' : 'Schowaj pasek narzędzi'"
+                        :aria-expanded="!drawerHeaderCollapsed">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"
+                         :style="drawerHeaderCollapsed ? '' : 'transform: rotate(180deg)'">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="wb-drawer-title">
+                    <b>Tabela wyników</b>
+                    <span class="wb-result-count">
+                        <strong x-text="queryResult.total.toLocaleString('pl-PL')"></strong>
+                    </span>
+                    <span class="muted tiny" x-show="selectedIds.size > 0">
+                        · zaznaczonych: <strong x-text="selectedIds.size"></strong>
+                    </span>
+                    {# PR8: usunieto cap warning -- po wprowadzeniu agregatow per obreb
+                       (zoom <14) i bez cap dla zoom >=14, pojecie "ucielismy" znika. #}
+                </div>
+                <template x-if="!drawerHeaderCollapsed">
+                <div class="wb-drawer-toolbar">
+                    <template x-for="chip in wbActiveChips()" :key="chip.key">
+                        <span class="chip" :class="chip.kind === 'spatial' ? 'spatial' : ''">
+                            <b x-text="chip.label + ':'"></b>
+                            <span x-text="chip.value"></span>
+                            <button @click="wbRemoveChip(chip.key)" title="Usuń filtr" :aria-label="'Usuń filtr: ' + chip.label">×</button>
+                        </span>
+                    </template>
+                </div>
+                </template>
+                <div class="wb-drawer-actions">
+                    <button class="wb-filter-btn" @click="wbToggleFilters()"
+                            :title="filtersCollapsed ? 'Pokaż panel filtrów' : 'Ukryj panel filtrów'"
+                            :aria-expanded="!filtersCollapsed">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                        </svg>
+                        <span x-text="filtersCollapsed ? 'Pokaż filtry' : 'Ukryj filtry'"></span>
+                    </button>
+                    <div class="wb-pager" x-show="queryResult.total > 0" role="navigation" aria-label="Paginacja tabeli wyników">
+                        <button class="wb-pager-btn" @click="goPage(1)" :disabled="page <= 1" title="Pierwsza strona" aria-label="Pierwsza strona">«</button>
+                        <button class="wb-pager-btn" @click="goPage(page-1)" :disabled="page <= 1" title="Poprzednia" aria-label="Poprzednia strona">‹</button>
+                        <span class="wb-pager-page" :aria-label="'Strona ' + page + ' z ' + Math.max(1, Math.ceil(queryResult.total / pageSize))">
+                            <strong x-text="page"></strong>
+                            <span class="muted">/ <span x-text="Math.max(1, Math.ceil(queryResult.total / pageSize))"></span></span>
+                        </span>
+                        <button class="wb-pager-btn" @click="goPage(page+1)" :disabled="page * pageSize >= queryResult.total" title="Następna" aria-label="Następna strona">›</button>
+                        <button class="wb-pager-btn" @click="goPage(Number.MAX_SAFE_INTEGER)" :disabled="page * pageSize >= queryResult.total" title="Ostatnia strona" aria-label="Ostatnia strona">»</button>
+                        <span class="wb-pager-range muted">
+                            <span x-text="Math.min((page-1)*pageSize + 1, queryResult.total)"></span>–<span x-text="Math.min(page*pageSize, queryResult.total)"></span>
+                            / <strong x-text="queryResult.total.toLocaleString('pl-PL')"></strong>
+                        </span>
+                    </div>
+                    {# PR5: 3 presety wysokosci drawera w kompaktowym segment-toggle.
+                       Drag-resize handle u gory drawera nadal dziala (dla power-userow). #}
+                    <div class="wb-drawer-presets" role="group" aria-label="Wysokość tabeli wyników">
+                        <button class="wb-drawer-preset"
+                                @click="wbSetDrawer('collapsed')"
+                                :class="drawerState === 'collapsed' ? 'active' : ''"
+                                :aria-pressed="drawerState === 'collapsed'"
+                                title="Zwiń tabelę (sam pasek narzędzi)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Zwiń
+                        </button>
+                        <button class="wb-drawer-preset"
+                                @click="wbSetDrawer('default')"
+                                :class="drawerState === 'default' ? 'active' : ''"
+                                :aria-pressed="drawerState === 'default'"
+                                title="Domyślna wysokość (40% ekranu)">40%</button>
+                        <button class="wb-drawer-preset"
+                                @click="wbSetDrawer('expanded')"
+                                :class="drawerState === 'expanded' ? 'active' : ''"
+                                :aria-pressed="drawerState === 'expanded'"
+                                title="Rozwiń tabelę (80% ekranu)">80%</button>
+                    </div>
+                </div>
+            </div>
+            <div class="wb-drawer-scroll">
+                {% include "partials/_data_table.html" %}
+            </div>
+        </div>
+    {# .wb-drawer zamknięty -- popover i sidebar dalej dziećmi .wb-canvas #}
+
+    <div class="wb-note-popover"
+         :class="'placement-' + notePopover.placement"
+         x-show="notePopover.open"
+         x-transition.opacity.duration.150ms
+         :style="`top: ${notePopover.top}px; left: ${notePopover.left}px; max-height: ${notePopover.maxHeight}px;`"
+         @mouseenter="wbNoteKeep()"
+         @mouseleave="wbNoteHide()">
+        <div class="wb-np-head">
+            <span class="wb-np-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span x-text="notePopover.has_note ? 'Notatka' : 'Szablon · dane transakcji'"></span>
+            </span>
+            <button class="wb-np-close" @click="notePopover.open = false" title="Zamknij" aria-label="Zamknij popover notatki">×</button>
+        </div>
+        <div x-show="notePopover.loading" class="wb-np-loading muted tiny">Wczytywanie…</div>
+        <template x-if="!notePopover.loading && notePopover.body">
+            <div class="wb-np-body note-preview" x-html="renderMarkdown(notePopover.body)"></div>
+        </template>
+        <template x-if="!notePopover.loading && !notePopover.body">
+            <div class="wb-np-body muted tiny">Brak danych do wyświetlenia.</div>
+        </template>
+        <div class="wb-np-actions">
+            <button class="btn-primary btn-sm"
+                    @click="openNote(notePopover.id_rcn); notePopover.open = false"
+                    x-text="notePopover.has_note ? '✎ Edytuj' : '+ Dodaj notatkę'"></button>
+        </div>
+    </div>
+
+    {# PR4 redesign: sidebar zadokowany w gridzie .wb-canvas (380 px expanded / 48 px collapsed).
+       Mobile (≤900 px) pokazuje go jako overlay z backdropem -- patrz CSS @media. #}
+    {% include "partials/_sidebar.html" %}
+{# /wb-canvas zamykane poniżej #}
+</div>
+
+    {# Faza 4 commit 2: pełnoekranowy widok tabela.
+       Layout: flex row -> [main: toolbar+scroll-table] | [sidebar filtrów].
+       Sidebar to ten sam partial co w widoku mapowym -- pełen Alpine state
+       (filters, filtersCollapsed, lookups) przeżywa toggle Mapa <-> Tabela. #}
+    <div class="wb-table-view"
+         :class="{'sidebar-collapsed': filtersCollapsed}"
+         x-show="viewMode === 'table'" x-cloak>
+        <div class="wb-table-main">
+            <div class="wb-table-toolbar">
+                <div class="wb-table-toolbar-info">
+                    <span class="wb-result-count">
+                        <strong x-text="queryResult.total.toLocaleString('pl-PL')"></strong>
+                        <span class="muted tiny">transakcji w filtrze</span>
+                    </span>
+                    <span class="muted tiny" x-show="selectedIds.size > 0">
+                        · zaznaczonych: <strong x-text="selectedIds.size"></strong>
+                    </span>
+                </div>
+                <div class="wb-table-toolbar-chips">
+                    <template x-for="chip in wbActiveChips()" :key="chip.key">
+                        <span class="chip" :class="chip.kind === 'spatial' ? 'spatial' : ''">
+                            <b x-text="chip.label + ':'"></b>
+                            <span x-text="chip.value"></span>
+                            <button @click="wbRemoveChip(chip.key)" title="Usuń filtr" :aria-label="'Usuń filtr: ' + chip.label">×</button>
+                        </span>
+                    </template>
+                </div>
+                <div class="wb-table-toolbar-actions">
+                    <button class="wb-filter-btn" @click="wbToggleFilters()"
+                            :title="filtersCollapsed ? 'Pokaż panel filtrów' : 'Ukryj panel filtrów'"
+                            :aria-expanded="!filtersCollapsed">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                        </svg>
+                        <span x-text="filtersCollapsed ? 'Pokaż filtry' : 'Ukryj filtry'"></span>
+                    </button>
+                    <div class="wb-pager" x-show="queryResult.total > 0" role="navigation" aria-label="Paginacja tabeli">
+                        <button class="wb-pager-btn" @click="goPage(1)" :disabled="page <= 1" title="Pierwsza strona" aria-label="Pierwsza strona">«</button>
+                        <button class="wb-pager-btn" @click="goPage(page-1)" :disabled="page <= 1" title="Poprzednia" aria-label="Poprzednia strona">‹</button>
+                        <span class="wb-pager-page">
+                            <strong x-text="page"></strong>
+                            <span class="muted">/ <span x-text="Math.max(1, Math.ceil(queryResult.total / pageSize))"></span></span>
+                        </span>
+                        <button class="wb-pager-btn" @click="goPage(page+1)" :disabled="page * pageSize >= queryResult.total" title="Następna" aria-label="Następna strona">›</button>
+                        <button class="wb-pager-btn" @click="goPage(Number.MAX_SAFE_INTEGER)" :disabled="page * pageSize >= queryResult.total" title="Ostatnia" aria-label="Ostatnia strona">»</button>
+                        <span class="wb-pager-range muted">
+                            <span x-text="Math.min((page-1)*pageSize + 1, queryResult.total)"></span>–<span x-text="Math.min(page*pageSize, queryResult.total)"></span>
+                            / <strong x-text="queryResult.total.toLocaleString('pl-PL')"></strong>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="wb-table-scroll">
+                {% include 'partials/_data_table.html' %}
+            </div>
+        </div>
+        {% include 'partials/_sidebar.html' %}
+    </div>
+
+    {# Faza 4 commit 3: modal "Pokaż na mapie" -- pojedyncza transakcja + bbox-aware sąsiedzi.
+       Otwierany przez 🎯 w wierszu tabeli (gdy viewMode === 'table'). Mapa Leaflet
+       montowana lazy w wbOpenMapModal, demontowana w wbCloseMapModal (oszczędzanie memory). #}
+    <div x-show="mapModal.open" x-cloak class="modal-backdrop wb-map-modal-backdrop"
+         @keydown.escape.window="if (mapModal.open) wbCloseMapModal()">
+        <div class="wb-map-modal" role="dialog" :aria-label="'Mapa transakcji: ' + (mapModal.item?.adres || mapModal.item?.id_rcn || '')">
+            <div class="wb-map-modal-head">
+                <div class="wb-map-modal-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/>
+                    </svg>
+                    <strong x-text="mapModal.item?.adres || mapModal.item?.id_rcn || 'Mapa transakcji'"></strong>
+                    <span class="muted tiny" x-show="mapModal.item?.data_transakcji">·</span>
+                    <span class="muted tiny" x-show="mapModal.item?.data_transakcji" x-text="mapModal.item?.data_transakcji"></span>
+                </div>
+                <div class="wb-map-modal-meta">
+                    <span class="muted tiny" x-show="!mapModal.loading">
+                        <strong x-text="mapModal.neighborsCount.toLocaleString('pl-PL')"></strong> transakcji w widoku
+                    </span>
+                    <span class="muted tiny" x-show="mapModal.loading">Ładowanie mapy…</span>
+                </div>
+                {# Faza 4 commit 3 fix: panel wyboru warstw widocznych w modalu mapy.
+                   Toggle przeładowuje fetch (clearLayers gdy OFF, fetch+addData gdy ON). #}
+                <div class="wb-modal-layers" x-data="{ open: false }" @click.outside="open = false">
+                    <button class="btn-ghost btn-sm" @click="open = !open" :class="open ? 'active' : ''" :aria-expanded="open" aria-haspopup="menu">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                        <span>Warstwy</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-caret" :style="open ? 'transform: rotate(180deg)' : ''" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="wb-modal-layers-menu" x-show="open" x-transition role="menu">
+                        <div class="wb-layer-section">
+                            <div class="wb-layer-section-title">Transakcje</div>
+                            <label class="wb-layer-toggle">
+                                <input type="checkbox" x-model="mapModal.layerFlags.neighbors" @change="toggleModalLayer('neighbors')">
+                                <span class="dot" style="background: #1E40AF"></span>
+                                <span class="wb-layer-toggle-label">Transakcje w widoku</span>
+                                <span class="wb-layer-count" x-show="mapModal.layerFlags.neighbors && !mapModal.loading" x-text="mapModal.neighborsCount.toLocaleString('pl-PL')"></span>
+                            </label>
+                            {# Faza 4 commit 4: toggle filterScope dla sąsiadów -- "cała baza" (default)
+                               lub "w kontekście filtru" (respektuje filtry tabeli). #}
+                            <div class="wb-modal-filter-scope" x-show="mapModal.layerFlags.neighbors" role="group" aria-label="Zakres sąsiadów">
+                                <button @click="setModalFilterScope('all')" :class="mapModal.filterScope === 'all' ? 'active' : ''" type="button">Cała baza</button>
+                                <button @click="setModalFilterScope('filtered')" :class="mapModal.filterScope === 'filtered' ? 'active' : ''" type="button">W kontekście filtru</button>
+                            </div>
+                        </div>
+                        <div class="wb-layer-section">
+                            <div class="wb-layer-section-title">Warstwy RCN</div>
+                            <label class="wb-layer-toggle">
+                                <input type="checkbox" x-model="mapModal.layerFlags.parcels" @change="toggleModalLayer('parcels')">
+                                <span class="dot" style="background: #3b82f6"></span>
+                                <span class="wb-layer-toggle-label">Działki RCN</span>
+                                <span class="wb-layer-zoom-hint">zoom ≥ 12</span>
+                            </label>
+                            <label class="wb-layer-toggle">
+                                <input type="checkbox" x-model="mapModal.layerFlags.buildings" @change="toggleModalLayer('buildings')">
+                                <span class="dot" style="background: #fb923c"></span>
+                                <span class="wb-layer-toggle-label">Budynki RCN</span>
+                                <span class="wb-layer-zoom-hint">zoom ≥ 14</span>
+                            </label>
+                        </div>
+                        <template x-if="(customLayers || []).length > 0">
+                            <div class="wb-layer-section">
+                                <div class="wb-layer-section-title">Warstwy GPKG</div>
+                                <template x-for="cl in customLayers" :key="cl.slug">
+                                    <label class="wb-layer-toggle">
+                                        {# x-model nie wspiera dynamic key (custom_<slug>), wiec :checked + @change. #}
+                                        <input type="checkbox"
+                                               :checked="mapModal.layerFlags[`custom_${cl.slug}`]"
+                                               @change="mapModal.layerFlags[`custom_${cl.slug}`] = $event.target.checked; toggleModalLayer(`custom_${cl.slug}`)">
+                                        <span class="dot" style="background: #c4b5fd"></span>
+                                        <span class="wb-layer-toggle-label" x-text="cl.name"></span>
+                                    </label>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="(customLayers || []).length === 0">
+                            <div class="wb-layer-section">
+                                <div class="wb-layer-section-title">Podkład EGIB</div>
+                                <label class="wb-layer-toggle">
+                                    <input type="checkbox" x-model="mapModal.layerFlags.egibParcels" @change="toggleModalLayer('egibParcels')">
+                                    <span class="dot" style="background: #94a3b8"></span>
+                                    <span class="wb-layer-toggle-label">EGIB działki</span>
+                                    <span class="wb-layer-zoom-hint">zoom ≥ 14</span>
+                                </label>
+                                <label class="wb-layer-toggle">
+                                    <input type="checkbox" x-model="mapModal.layerFlags.egibBuilds" @change="toggleModalLayer('egibBuilds')">
+                                    <span class="dot" style="background: #94a3b8"></span>
+                                    <span class="wb-layer-toggle-label">EGIB budynki</span>
+                                    <span class="wb-layer-zoom-hint">zoom ≥ 15</span>
+                                </label>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <button class="close-btn" @click="wbCloseMapModal()" title="Zamknij" aria-label="Zamknij modal mapy">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="wb-map-modal-body">
+                <div id="wb-modal-map" class="wb-modal-map-canvas"></div>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="cartOpen" x-cloak class="modal-backdrop" @click.self="cartOpen = false" @keydown.escape.window="cartOpen = false">
+        <div class="modal wb-cart-modal" role="dialog" aria-labelledby="cart-title">
+            <div class="wb-cart-modal-head">
+                <h2 id="cart-title">
+                    Twoja kolekcja
+                    <span class="count-badge" x-text="selectedIds.size + ' ' + (selectedIds.size === 1 ? 'transakcja' : (selectedIds.size > 1 && selectedIds.size < 5 ? 'transakcje' : 'transakcji'))"></span>
+                    <span class="cart-limit-badge" x-show="!isAdmin"
+                          :class="selectedIds.size >= cartLimit ? 'is-full' : (selectedIds.size >= cartLimit * 0.8 ? 'is-warn' : '')"
+                          x-text="'Limit ' + selectedIds.size + ' / ' + cartLimit"
+                          title="Limit koszyka dla użytkownika testowego. Admin bez limitu."></span>
+                </h2>
+                <button class="close-btn" @click="cartOpen = false" title="Zamknij" aria-label="Zamknij modal koszyka">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="wb-cart-modal-body">
+                <div class="wb-cart-quality-warning" x-show="wbCartFlaggedCount() > 0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span><strong x-text="wbCartFlaggedCount()"></strong> z <strong x-text="selectedIds.size"></strong> transakcji w koszyku ma flagi jakości danych. Sprawdź przed wykorzystaniem do wyceny.</span>
+                </div>
+                <div class="wb-cart-list" x-show="selectedIds.size > 0">
+                    <template x-for="id in Array.from(selectedIds)" :key="id">
+                        <div class="wb-cart-item">
+                            {# PR6 fix: siatka 3-kolumnowa: dane (1fr) | cena (110px) | usun (auto).
+                               Wariant A: notatka per transakcja jest jedna w DB. W koszyku
+                               TYLKO STATUS notatki + przycisk otwierajacy edytor (modal "note"). #}
+                            <div class="wb-cart-row1">
+                                <span class="wb-cart-addr" x-text="wbCartAddr(id)"></span>
+                            </div>
+                            <span class="wb-cart-meta" x-text="wbCartMeta(id)"></span>
+                            <div class="wb-cart-price">
+                                <span class="price-main" x-text="wbCartPrice(id)"></span>
+                                <span class="price-sub" x-text="wbCartPriceM2(id)"></span>
+                            </div>
+                            <button class="wb-cart-remove" @click="wbRemoveFromCart(id)" title="Usuń z kolekcji" :aria-label="'Usuń ' + wbCartAddr(id) + ' z kolekcji'">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+                                    <path d="M10 11v6M14 11v6"/>
+                                </svg>
+                            </button>
+                            {# TODO(notatki-transakcji): przycisk "Notatka transakcji" wylaczony
+                               do pozniejszej analizy. Notatki transakcji sa nadal edytowalne
+                               z TABELI WYNIKOW (📝 / ＋ przy dacie), ale w koszyku celowo
+                               nie pokazujemy ich -- koszyk ma "Komentarz do tego eksportu"
+                               (jednorazowy, w stopce modala). Gdy wlaczamy:
+                               1) odkomentuj button ponizej
+                               2) backend exports.py + xlsx_builder.py majatakze TODO komentarze
+                            <button class="wb-cart-note-btn" @click="openNote(id)"
+                                    :class="wbCartHasNote(id) === true ? 'has-note' : 'no-note'"
+                                    :title="wbCartHasNote(id) === true ? 'Edytuj notatkę tej transakcji' : 'Dodaj notatkę do tej transakcji'">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                </svg>
+                                <span x-show="wbCartHasNote(id) === true">Edytuj notatkę transakcji</span>
+                                <span x-show="wbCartHasNote(id) === false">+ Dodaj notatkę transakcji</span>
+                                <span x-show="wbCartHasNote(id) === null">📝 Notatka transakcji</span>
+                            </button>
+                            #}
+                        </div>
+                    </template>
+                </div>
+                <div class="wb-cart-empty" x-show="selectedIds.size === 0">
+                    Kliknij wiersz w tabeli, checkbox lub „Dodaj do kolekcji" w popupie markera, aby zebrać transakcje tutaj.
+                </div>
+            </div>
+            {# PR6 fix: pole "Komentarz do tego eksportu" w osobnej sekcji nad stopka.
+               Trafia do arkusza "Podsumowanie" w XLSX (jednorazowy, niepersystowany). #}
+            <div class="wb-cart-export-comment" x-show="selectedIds.size > 0">
+                <label for="cart-export-comment-input">
+                    Komentarz do tego eksportu
+                    <span class="muted">(opcjonalny, trafia do arkusza „Podsumowanie" w XLSX)</span>
+                </label>
+                <textarea id="cart-export-comment-input"
+                          x-model="cartExportComment"
+                          rows="2"
+                          maxlength="2000"
+                          placeholder="np. „Zestawienie dla wyceny lokalu Piotrkowska 142, klient Kowalski, 2026-04-27."></textarea>
+            </div>
+            <div class="wb-cart-modal-footer">
+                <button class="btn-ghost btn-sm" @click="clearSelection()" :disabled="selectedIds.size === 0" style="color: var(--color-danger-500);">Wyczyść kolekcję</button>
+                <div class="spacer"></div>
+                <button class="btn-secondary btn-sm" @click="wbOpenAnalysis()"
+                        :disabled="analysisLoading || selectedIds.size < 2"
+                        title="Statystyki cenowe + trend kwartalny + wycinki rynek/transakcja/obręb">Σ Analiza statystyczna</button>
+                {# Wtyczki (pliki .py wgrywane na liście workspace'ów) -- dropdown z analizami #}
+                <div class="wb-plugin-menu" @click.outside="pluginMenuOpen = false">
+                    <button class="btn-secondary btn-sm" @click="pluginMenuOpen = !pluginMenuOpen; wbLoadPlugins()"
+                            :disabled="pluginLoading || selectedIds.size === 0"
+                            title="Dodatkowe analizy z wtyczek">🧩 Wtyczki</button>
+                    <div class="wb-plugin-dropdown" x-show="pluginMenuOpen" x-cloak>
+                        <template x-for="p in pluginsList" :key="p.id">
+                            <button class="wb-plugin-item" @click="wbOpenPlugin(p)"
+                                    :title="p.description || p.name">
+                                <span x-text="p.name"></span>
+                                <span class="muted" x-text="p.version ? 'v' + p.version : ''"></span>
+                            </button>
+                        </template>
+                        <div class="wb-plugin-item muted" x-show="pluginsLoaded && pluginsList.length === 0">
+                            Brak zainstalowanych wtyczek
+                        </div>
+                        <a class="wb-plugin-item wb-plugin-manage" href="/workspaces#wtyczki">Zarządzaj wtyczkami…</a>
+                    </div>
+                </div>
+                <div class="wb-cart-export-group" role="group" aria-label="Format eksportu">
+                    <button class="wb-cart-export-btn" @click="doExport('xlsx')"
+                            :disabled="exporting || selectedIds.size === 0"
+                            title="Excel — pełne dane z wszystkimi obiektami + komentarz w arkuszu Podsumowanie">
+                        <span class="ext">XLSX</span> Eksport
+                    </button>
+                    <button class="wb-cart-export-btn" @click="doExport('gpkg')"
+                            :disabled="exporting || selectedIds.size === 0"
+                            title="GeoPackage — warstwy działek/budynków/lokali dla QGIS">
+                        <span class="ext">GPKG</span>
+                    </button>
+                    <button class="wb-cart-export-btn" @click="doExport('csv')"
+                            :disabled="exporting || selectedIds.size === 0"
+                            title="CSV — tabelaryczne z id_rcn jako kluczem, do pipeline PDF batch download">
+                        <span class="ext">CSV</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="analysisOpen" x-cloak class="modal-backdrop" @click.self="analysisOpen = false" @keydown.escape.window="analysisOpen = false">
+        <div class="modal wb-analysis-modal">
+            <div class="wb-analysis-head">
+                <h2>Σ Analiza · <span class="muted" x-text="analysisData ? analysisData.total_matched + ' transakcji' : '…'"></span></h2>
+                <button class="btn-ghost btn-sm" @click="analysisOpen = false" title="Zamknij" aria-label="Zamknij modal analizy">✕</button>
+            </div>
+            <div class="wb-analysis-tabs">
+                <button :class="analysisTab === 'stats' ? 'active' : ''" @click="analysisTab = 'stats'">📊 Statystyki</button>
+                <button :class="analysisTab === 'trend' ? 'active' : ''" @click="analysisTab = 'trend'; $nextTick(() => wbRenderCharts())">📈 Trend</button>
+                <button :class="analysisTab === 'cuts' ? 'active' : ''" @click="analysisTab = 'cuts'">🔀 Wycinki</button>
+            </div>
+            <div class="wb-analysis-body">
+                <template x-if="analysisLoading">
+                    <p class="muted">Liczymy statystyki…</p>
+                </template>
+                <template x-if="!analysisLoading && analysisData">
+                    <div>
+                        <!-- STATYSTYKI -->
+                        <div x-show="analysisTab === 'stats'">
+                            <p class="help-text">
+                                Statystyki rozbite per <strong>rodzaj nieruchomości</strong> — cena/m² gruntu i lokalu to inne parametry,
+                                dlatego w wierszu „Wszystkie" jest tylko suma cen bezwzględnych.
+                                <strong>CV</strong> (współczynnik zmienności) &gt; 30% sugeruje niejednorodny zbiór — rozważ zawężenie.
+                            </p>
+                            <table class="data wb-analysis-table">
+                                <thead>
+                                    <tr>
+                                        <th>Typ</th>
+                                        <th class="num">N</th>
+                                        <th class="num">Śr. cena</th>
+                                        <th class="num">Mediana</th>
+                                        <th class="num">Min–Max</th>
+                                        <th class="num">Śr. cena/m²</th>
+                                        <th class="num">Mediana c/m²</th>
+                                        <th class="num">Min–Max c/m²</th>
+                                        <th class="num">CV</th>
+                                        <th class="num">Śr. pow.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="row in analysisData.stats_by_kind" :key="row.kind">
+                                        <tr :class="row.kind === 'all' ? 'wb-analysis-all' : ''">
+                                            <td x-text="row.label"></td>
+                                            <td class="num" x-text="row.cena.n"></td>
+                                            <td class="num" x-text="row.cena.n ? formatMoney(row.cena.mean) : '—'"></td>
+                                            <td class="num" x-text="row.cena.n ? formatMoney(row.cena.median) : '—'"></td>
+                                            <td class="num tiny muted" x-text="row.cena.n ? formatMoney(row.cena.min) + ' – ' + formatMoney(row.cena.max) : '—'"></td>
+                                            <td class="num" x-text="row.cena_m2 && row.cena_m2.n ? Math.round(row.cena_m2.mean).toLocaleString('pl-PL') : '—'"></td>
+                                            <td class="num" x-text="row.cena_m2 && row.cena_m2.n ? Math.round(row.cena_m2.median).toLocaleString('pl-PL') : '—'"></td>
+                                            <td class="num tiny muted" x-text="row.cena_m2 && row.cena_m2.n ? Math.round(row.cena_m2.min) + ' – ' + Math.round(row.cena_m2.max) : '—'"></td>
+                                            <td class="num" :class="row.cena_m2 && row.cena_m2.cv > 0.3 ? 'wb-analysis-cv-warn' : ''"
+                                                x-text="row.cena_m2 && row.cena_m2.cv != null ? (row.cena_m2.cv * 100).toFixed(1) + '%' : '—'"></td>
+                                            <td class="num" x-text="row.area && row.area.n ? Math.round(row.area.mean).toLocaleString('pl-PL') + ' m²' : '—'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- TREND -->
+                        <div x-show="analysisTab === 'trend'">
+                            <p class="help-text">Lewy: mediana cena/m² kwartalnie per typ. Prawy: scatter — każda kropka to transakcja.</p>
+                            <div class="wb-analysis-charts">
+                                <div><canvas id="wbChartQuarterly"></canvas></div>
+                                <div><canvas id="wbChartScatter"></canvas></div>
+                            </div>
+                            <p class="muted tiny" x-show="analysisData.scatter.length >= 5000">
+                                Pokazujemy pierwsze 5000 punktów scatter (cap dla performance).
+                            </p>
+                        </div>
+                        <!-- WYCINKI -->
+                        <div x-show="analysisTab === 'cuts'">
+                            <div class="wb-analysis-cuts">
+                                <section>
+                                    <h3>Per rynek</h3>
+                                    <table class="data">
+                                        <thead><tr><th>Rynek</th><th class="num">N</th><th class="num">Mediana ceny</th><th class="num">Mediana c/m²</th><th class="num">Śr. VAT%</th></tr></thead>
+                                        <tbody>
+                                            <template x-for="r in analysisData.per_rynek" :key="r.rynek">
+                                                <tr>
+                                                    <td x-text="r.rynek"></td>
+                                                    <td class="num" x-text="r.cena.n"></td>
+                                                    <td class="num" x-text="formatMoney(r.cena.median)"></td>
+                                                    <td class="num" x-text="r.cena_m2.n ? Math.round(r.cena_m2.median).toLocaleString('pl-PL') : '—'"></td>
+                                                    <td class="num" x-text="r.avg_vat_rate != null ? r.avg_vat_rate + '%' : '—'"></td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </section>
+                                <section>
+                                    <h3>Per rodzaj transakcji</h3>
+                                    <table class="data">
+                                        <thead><tr><th>Rodzaj</th><th class="num">N</th><th class="num">%</th></tr></thead>
+                                        <tbody>
+                                            <template x-for="r in analysisData.per_rodzaj_transakcji" :key="r.rodzaj">
+                                                <tr>
+                                                    <td x-text="r.rodzaj"></td>
+                                                    <td class="num" x-text="r.count"></td>
+                                                    <td class="num" x-text="r.pct + '%'"></td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </section>
+                                <section>
+                                    <h3>Top 5 obrębów</h3>
+                                    <table class="data">
+                                        <thead><tr><th>Obręb</th><th class="num">N</th><th class="num">Mediana c/m²</th></tr></thead>
+                                        <tbody>
+                                            <template x-for="r in analysisData.top_obreb" :key="r.obreb">
+                                                <tr>
+                                                    <td x-text="r.obreb"></td>
+                                                    <td class="num" x-text="r.count"></td>
+                                                    <td class="num" x-text="r.median_cena_m2 != null ? Math.round(r.median_cena_m2).toLocaleString('pl-PL') : '—'"></td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="!analysisLoading && !analysisData && analysisError">
+                    <p class="create-ws-error" x-text="analysisError"></p>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    {# Modal wyniku wtyczki -- generyczny renderer (tables/charts/text/svg z JSON wtyczki) #}
+    <div x-show="pluginOpen" x-cloak class="modal-backdrop" @click.self="pluginOpen = false" @keydown.escape.window="pluginOpen = false">
+        <div class="modal wb-analysis-modal">
+            <div class="wb-analysis-head">
+                <h2>🧩 <span x-text="pluginName"></span> · <span class="muted" x-text="selectedIds.size + ' transakcji'"></span></h2>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <button class="btn-secondary btn-sm" x-show="wbCanExportPlugin()" x-cloak
+                            @click="wbExportPluginResult()"
+                            title="Zapisz tabele wyniku (i interpretację) jako skoroszyt Excel">⬇ XLSX</button>
+                    <button class="btn-ghost btn-sm" @click="pluginOpen = false" title="Zamknij" aria-label="Zamknij modal wtyczki">✕</button>
+                </div>
+            </div>
+            <div class="wb-analysis-body">
+                {# Formularz parametrów (deklaracja PLUGIN['params']) -- przed startem i do re-run #}
+                <template x-if="pluginParams && !pluginLoading">
+                    <form class="wb-plugin-params" @submit.prevent="wbRunPluginWithParams()">
+                        <template x-for="spec in pluginParams" :key="spec.name">
+                            <label class="wb-plugin-param">
+                                <span class="wb-plugin-param-label" x-text="spec.label"></span>
+                                <template x-if="spec.type === 'select'">
+                                    <select x-model="pluginParamValues[spec.name]">
+                                        <template x-for="opt in (spec.options || [])" :key="opt.value">
+                                            <option :value="opt.value" x-text="opt.label"></option>
+                                        </template>
+                                    </select>
+                                </template>
+                                <template x-if="spec.type !== 'select'">
+                                    <input :type="spec.type" :min="spec.min" :max="spec.max"
+                                           :step="spec.step" x-model="pluginParamValues[spec.name]"
+                                           :placeholder="spec.default == null ? '' : String(spec.default)">
+                                </template>
+                                <span class="muted tiny" x-show="spec.help" x-text="spec.help"></span>
+                            </label>
+                        </template>
+                        <button type="submit" class="btn-secondary btn-sm"
+                                x-text="pluginResult ? 'Przelicz ponownie' : 'Uruchom analizę'"></button>
+                    </form>
+                </template>
+                <template x-if="pluginLoading">
+                    <p class="muted">Liczymy…</p>
+                </template>
+                <template x-if="!pluginLoading && pluginError">
+                    <p class="create-ws-error" x-text="pluginError"></p>
+                </template>
+                <template x-if="!pluginLoading && pluginCapped">
+                    <p class="wb-plugin-capped" x-text="pluginCapped"></p>
+                </template>
+                <template x-if="!pluginLoading && pluginResult">
+                    <div class="wb-plugin-result" x-html="wbPluginHtml()"></div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="openUpload" x-cloak class="modal-backdrop" @click.self="openUpload = false" @keydown.escape.window="if (openUpload && !uploading) openUpload = false">
+        <div class="modal wide">
+            <h2>Upload GML</h2>
+            <form @submit.prevent="doUpload()" class="stack">
+                <label>Plik
+                    <input type="file" accept=".gml,.xml" @change="file = $event.target.files[0]">
+                </label>
+                <label>Tryb
+                    <select x-model="uploadTryb">
+                        <option value="snapshot">Snapshot (pełny powiat)</option>
+                        <option value="delta">Delta (przyrostowy, np. Łódź)</option>
+                    </select>
+                </label>
+                <template x-if="uploadStatus">
+                    <pre class="upload-status" x-text="uploadStatus"></pre>
+                </template>
+                <template x-if="uploadProgress.active">
+                    <div class="upload-progress">
+                        <div class="progress-bar"><div class="progress-fill" :style="`width:${uploadProgress.pct}%`"></div></div>
+                        <div class="progress-meta">
+                            <span x-text="uploadProgress.stage"></span>
+                            · <span x-text="uploadProgress.pct + '%'"></span>
+                        </div>
+                    </div>
+                </template>
+                <div class="row-end">
+                    <button class="btn-ghost" type="button" @click="openUpload = false" :disabled="uploading && uploadProgress.pct < 100">Zamknij</button>
+                    <button class="btn-primary" type="submit" :disabled="!file || uploading">
+                        <span x-show="!uploading">Wyślij</span>
+                        <span x-show="uploading">Przetwarzam…</span>
+                    </button>
+                </div>
+            </form>
+
+            <hr>
+            <h3>Importy w tym workspace</h3>
+            <p class="help-text">
+                <strong>Legenda kolumny „Wynik":</strong>
+                <code>+N</code> — nowe · <code>~N</code> — zaktualizowane (nadpisane nowszą wersją tej samej transakcji) · <code>skip N</code> — pominięte (starszy/duplikat) · <code>🗑️ N</code> — wycofane z portalu (tryb <code>snapshot</code>: brakuje ich w zakresie dat tego pliku).
+                Deduplikacja po <code>id_RCN</code> (<code>oznaczenieTransakcji</code> z GML); notatki zachowane.
+            </p>
+            <table class="list small">
+                <thead><tr><th>#</th><th>Plik</th><th>Tryb</th><th>Status</th><th>Wynik</th><th>Czas</th><th></th></tr></thead>
+                <tbody>
+                    <template x-for="imp in imports" :key="imp.id">
+                        <tr :class="'import-row status-' + imp.status">
+                            <td x-text="imp.id"></td>
+                            <td x-text="imp.original_filename" :title="imp.file_hash || ''"></td>
+                            <td x-text="imp.tryb"></td>
+                            <td>
+                                <span :class="'status-pill status-' + imp.status" x-text="imp.status"></span>
+                                <span x-show="imp.status === 'processing'" class="muted" x-text="' ' + (imp.stage || '') + ' ' + imp.progress_pct + '%'"></span>
+                                <span x-show="imp.status === 'failed'" class="tiny" :title="imp.error_msg" x-text="imp.error_msg ? imp.error_msg.slice(0, 40) + '…' : ''"></span>
+                            </td>
+                            <td>
+                                <span x-show="imp.status === 'success'" class="import-counts">
+                                    <span class="cnt-ins" title="Nowe transakcje (nigdy wcześniej niewidziane id_RCN)">+<span x-text="imp.inserted_count"></span></span>
+                                    <span class="cnt-upd" title="Zaktualizowane (id_RCN było już w bazie – nowszy plik GML nadpisuje starszą wersję tej samej transakcji)">~<span x-text="imp.updated_count"></span></span>
+                                    <span class="cnt-skip" title="Pominięte (id_RCN już w bazie z nowszym import_timestamp – ten plik był starszy lub duplikatem)">skip <span x-text="imp.skipped_count"></span></span>
+                                    <span class="cnt-wth" x-show="imp.withdrawn_count > 0"
+                                          :title="'Wycofane z portalu (snapshot nie zawiera ich w zakresie ' + (imp.data_transakcji_od || '?') + ' – ' + (imp.data_transakcji_do || '?') + ')'">
+                                        🗑️ <span x-text="imp.withdrawn_count"></span>
+                                    </span>
+                                </span>
+                            </td>
+                            <td><span x-text="imp.duration_s ? imp.duration_s + ' s' : '—'"></span></td>
+                            <td>
+                                <button x-show="isAdmin" class="btn-danger btn-sm" @click="removeImport(imp)">Usuń</button>
+                                <span x-show="!isAdmin" class="muted tiny">—</span>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div x-show="note.open" x-cloak class="modal-backdrop" @click.self="closeNote()" @keydown.escape.window="if (note.open) closeNote()">
+        <div class="modal note-modal" role="dialog" aria-labelledby="note-title">
+            <div class="note-head">
+                <h2 id="note-title">Notatka · <code x-text="(note.id_rcn || '').slice(0, 8) + '…'"></code></h2>
+                <span x-show="note.isSeed" class="muted tiny">(szablon z danych RCN — zapis utworzy notatkę)</span>
+                <span x-show="!note.isSeed && note.updated_at" class="muted tiny" x-text="'ost. edycja: ' + formatDate(note.updated_at)"></span>
+                <span class="muted tiny" style="margin-left: auto;">Ctrl+Enter: zapisz</span>
+            </div>
+            <div class="note-body">
+                <textarea x-model="note.body" rows="18" :disabled="note.loading || !isAdmin" placeholder="Notatka w Markdown…" @keydown.ctrl.enter="saveNote()" aria-label="Treść notatki w Markdownie"></textarea>
+                <div class="note-preview" x-html="renderMarkdown(note.body)" aria-label="Podgląd notatki" role="region"></div>
+            </div>
+            <div class="note-foot">
+                <span x-show="!isAdmin" class="muted tiny">Readonly — edycja zablokowana</span>
+                <button class="btn-danger btn-sm" x-show="isAdmin" @click="deleteNote()" :disabled="note.loading || note.isSeed">Usuń notatkę</button>
+                <div class="spacer"></div>
+                <button class="btn-ghost btn-sm" @click="closeNote()" :disabled="note.loading">Zamknij</button>
+                <button class="btn-primary btn-sm" x-show="isAdmin" @click="saveNote()" :disabled="note.loading">
+                    <span x-show="!note.loading">Zapisz</span>
+                    <span x-show="note.loading">Zapisuję…</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="layersAdminOpen" x-cloak class="modal-backdrop"
+         @click.self="layersAdminOpen = false"
+         @keydown.escape.window="layersAdminOpen = false">
+        <div class="modal wide">
+            <h2>🗺 Warstwy GPKG i POI</h2>
+            <p class="help-text">
+                Własne warstwy GPKG dla tego workspace. Wgrane warstwy są widoczne na mapie
+                jako overlay (panel warstw → 📍 nazwa). Globalne podkłady EGIB są ukryte
+                gdy workspace ma własne warstwy.
+            </p>
+
+            <h3 class="muted-h3">Aktualne warstwy</h3>
+            <table class="list small" x-show="customLayers.length > 0">
+                <thead><tr><th>Nazwa</th><th>Plik</th><th>Rozmiar</th><th></th></tr></thead>
+                <tbody>
+                    <template x-for="cl in customLayers" :key="cl.slug">
+                        <tr>
+                            <td><b x-text="cl.name"></b></td>
+                            <td class="muted"><code x-text="cl.file"></code></td>
+                            <td class="muted" x-text="((cl.size_bytes || 0) / 1024 / 1024).toFixed(1) + ' MB'"></td>
+                            <td>
+                                <button class="btn-danger btn-sm"
+                                        @click="deleteCustomLayer(cl.slug, cl.name)"
+                                        :disabled="layerActionBusy"
+                                        :aria-label="'Usuń warstwę ' + cl.name"
+                                        title="Usuń warstwę">×</button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            <p x-show="customLayers.length === 0" class="muted">Brak własnych warstw.</p>
+
+            <hr>
+            <h3 class="muted-h3" x-show="isAdmin">Dodaj nową warstwę</h3>
+            <form @submit.prevent="addCustomLayer()" class="stack" x-show="isAdmin">
+                <label>Nazwa warstwy
+                    <input type="text" x-model="layerAddName" placeholder="np. Działki Bełchatów" maxlength="100" required>
+                </label>
+                <label>Plik GPKG
+                    <input type="file" accept=".gpkg" @change="layerAddFile = $event.target.files[0]" required>
+                </label>
+                <template x-if="layerActionStatus">
+                    <pre class="upload-status" x-text="layerActionStatus"></pre>
+                </template>
+                <div class="row-end">
+                    <button class="btn-primary" type="submit"
+                            :disabled="!layerAddName.trim() || !layerAddFile || layerActionBusy">
+                        <span x-show="!layerActionBusy">+ Dodaj warstwę</span>
+                        <span x-show="layerActionBusy">Wgrywam…</span>
+                    </button>
+                </div>
+            </form>
+
+            <hr>
+            <h3 class="muted-h3">📍 Warstwa POI (OSM)</h3>
+            <p class="help-text">
+                Punkty zainteresowania (szkoły, sklepy, przystanki…) z pliku
+                <code>*.poi.sqlite</code> — widoczne na mapie jako warstwa i dostępne
+                dla wtyczek analitycznych. Plik generuje autor aplikacji;
+                zwykle przychodzi razem z bazą powiatu.
+            </p>
+            <template x-if="poiInfo.present">
+                <p>
+                    <code x-text="poiInfo.file"></code> ·
+                    <span x-text="(poiInfo.points || 0).toLocaleString('pl-PL') + ' punktów'"></span>
+                    <span class="muted" x-show="poiInfo.generated_at"
+                          x-text="' · wygenerowano ' + (poiInfo.generated_at || '').slice(0, 10)"></span>
+                    <span class="muted" x-text="' · ' + ((poiInfo.size_bytes || 0) / 1024).toFixed(0) + ' KB'"></span>
+                </p>
+            </template>
+            <p x-show="!poiInfo.present" class="muted">Brak pliku POI w tym workspace.</p>
+            <div class="row-end" x-show="isAdmin" style="justify-content: flex-start; gap: 8px;">
+                <input type="file" x-ref="poiInput" accept=".sqlite" style="display: none"
+                       @change="uploadPoiFile($event)">
+                <button class="btn-secondary btn-sm" type="button" :disabled="poiBusy"
+                        @click="$refs.poiInput.click()"
+                        x-text="poiInfo.present ? 'Zastąp plik POI…' : '+ Wgraj plik POI…'"></button>
+                <button class="btn-danger btn-sm" type="button" x-show="poiInfo.present"
+                        :disabled="poiBusy" @click="deletePoi()">Usuń</button>
+            </div>
+            <template x-if="poiStatus">
+                <pre class="upload-status" x-text="poiStatus"></pre>
+            </template>
+
+            <p x-show="!isAdmin" class="muted">Readonly — dodawanie i usuwanie zablokowane.</p>
+            <div class="row-end">
+                <button class="btn-ghost" type="button" @click="layersAdminOpen = false">Zamknij</button>
+            </div>
+        </div>
+    </div>
+
+    {# PR9: stack toastow w prawym dolnym rogu (success/info/error) #}
+    <div class="wb-toast-stack" aria-live="polite" aria-atomic="true">
+        <template x-for="t in toasts" :key="t.id">
+            <div class="wb-toast" :class="'wb-toast-' + (t.type || 'info')">
+                <div class="wb-toast-icon" aria-hidden="true">
+                    <template x-if="t.type === 'success'">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </template>
+                    <template x-if="t.type === 'error'">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    </template>
+                    <template x-if="!t.type || t.type === 'info'">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    </template>
+                </div>
+                <div class="wb-toast-content">
+                    <div class="wb-toast-title" x-text="t.title"></div>
+                    <div class="wb-toast-desc" x-show="t.desc" x-text="t.desc"></div>
+                </div>
+                <button class="wb-toast-close" @click="dismissToast(t.id)" aria-label="Zamknij powiadomienie">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+                </button>
+            </div>
+        </template>
+    </div>
+    {# Modal "Ustawienia jakości danych" -- thresholdy per workspace.
+       Admin-only (x-show="isAdmin"). Po Save -> PUT + recompute flag. #}
+    <div x-show="qualityThresholdsOpen" x-cloak class="modal-backdrop" @click.self="qualityThresholdsOpen = false" @keydown.escape.window="qualityThresholdsOpen = false">
+        <div class="modal" role="dialog" aria-labelledby="quality-thresh-title" style="max-width: 640px;">
+            <header class="note-head">
+                <h2 id="quality-thresh-title">⚙ Ustawienia jakości danych</h2>
+                <button class="close-btn" @click="qualityThresholdsOpen = false" title="Zamknij" aria-label="Zamknij modal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
+                    </svg>
+                </button>
+            </header>
+            <div class="quality-thresh-body" x-show="!qualityThresholdsLoading">
+                <p class="muted tiny" style="margin-bottom: 1rem;">
+                    Progi cena/m² dla flagi <strong>extreme_price_per_m2</strong>. Wartości poza zakresem
+                    [<em>high/ratio</em>, <em>high</em>] są flagowane. Po zapisie -- recompute flagi
+                    całej bazy (Łódź ~6s, Bełchatów ~1s, Warszawa ~25s).
+                </p>
+                <div class="quality-thresh-grid">
+                    <div class="quality-thresh-row">
+                        <label>Lokal -- max zł/m²</label>
+                        <input type="number" x-model.number="qualityThresholds.lokal_high" min="0" step="100">
+                        <span class="muted tiny">domyślnie 30 000</span>
+                    </div>
+                    <div class="quality-thresh-row">
+                        <label>Lokal -- low ratio</label>
+                        <input type="number" x-model.number="qualityThresholds.lokal_low_ratio" min="1" step="10">
+                        <span class="muted tiny" x-text="'low = ' + Math.round(qualityThresholds.lokal_high / qualityThresholds.lokal_low_ratio) + ' zł/m²'"></span>
+                    </div>
+                    <div class="quality-thresh-row">
+                        <label>Budynek -- max zł/m²</label>
+                        <input type="number" x-model.number="qualityThresholds.budynek_high" min="0" step="100">
+                        <span class="muted tiny">domyślnie 50 000</span>
+                    </div>
+                    <div class="quality-thresh-row">
+                        <label>Budynek -- low ratio</label>
+                        <input type="number" x-model.number="qualityThresholds.budynek_low_ratio" min="1" step="10">
+                        <span class="muted tiny" x-text="'low = ' + Math.round(qualityThresholds.budynek_high / qualityThresholds.budynek_low_ratio) + ' zł/m²'"></span>
+                    </div>
+                    <div class="quality-thresh-row">
+                        <label>Grunt -- max zł/m²</label>
+                        <input type="number" x-model.number="qualityThresholds.grunt_high" min="0" step="100">
+                        <span class="muted tiny">domyślnie 5 000</span>
+                    </div>
+                    <div class="quality-thresh-row">
+                        <label>Grunt -- low ratio</label>
+                        <input type="number" x-model.number="qualityThresholds.grunt_low_ratio" min="1" step="10">
+                        <span class="muted tiny" x-text="'low = ' + (qualityThresholds.grunt_high / qualityThresholds.grunt_low_ratio).toFixed(1) + ' zł/m²'"></span>
+                    </div>
+                    <div class="quality-thresh-row">
+                        <label>Split-suspect ratio</label>
+                        <input type="number" x-model.number="qualityThresholds.split_suspect_ratio" min="1.1" step="0.1">
+                        <span class="muted tiny">cena_tx >= ratio × SUM(child cen)</span>
+                    </div>
+                </div>
+            </div>
+            <div x-show="qualityThresholdsLoading" class="muted" style="text-align:center; padding: 2rem;">
+                Ładowanie / recompute flag...
+            </div>
+            <p class="muted tiny" x-show="qualityThresholdsAutoMsg" x-text="qualityThresholdsAutoMsg" style="margin: 0.5rem 0; padding: 0.5rem 0.75rem; background: #eef2ff; border-radius: 4px;"></p>
+            <footer class="note-foot">
+                <button class="btn-ghost" @click="wbAutoDetectQualityThresholds()" :disabled="qualityThresholdsLoading"
+                        title="Wylicz progi z faktycznych danych workspace (percentyle P5/P95 per typ)">
+                    📊 Auto-detect z danych
+                </button>
+                <button class="btn-ghost" @click="wbResetQualityThresholdsToDefaults()" :disabled="qualityThresholdsLoading">Przywróć domyślne</button>
+                <button class="btn-ghost" @click="qualityThresholdsOpen = false" :disabled="qualityThresholdsLoading">Anuluj</button>
+                <button class="btn-primary" @click="wbSaveQualityThresholds()" :disabled="qualityThresholdsLoading">Zapisz + recompute</button>
+            </footer>
+        </div>
+    </div>
+
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="/static/js/workspace.js?v={{ static_version }}"></script>
+{% endblock %}

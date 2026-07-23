@@ -1,0 +1,655 @@
+{% extends "base.html" %}
+{% block title %}Workspaces — RCN Workshop{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/index.css?v={{ static_version }}">
+<script>document.addEventListener('DOMContentLoaded', () => document.body.classList.add('idx-page'));</script>
+{% endblock %}
+
+{% block topnav %}
+<header class="idx-topbar" x-data="{ me: { username: '', role: 'readonly' }, get isAdmin() { return this.me.role === 'admin'; } }" x-init="fetch('/api/me').then(r => r.ok && r.json()).then(d => d && (me = d))">
+    <div class="idx-brand">
+        <span class="idx-brand-logo">RCN</span>
+        <span class="idx-brand-tag">Workshop · dla rzeczoznawców</span>
+        {% if is_beta %}<span class="rcn-beta-badge" title="Wersja testowa {{ app_version }} — może zawierać błędy">BETA</span>{% endif %}
+    </div>
+    <nav>
+        <a href="/workspaces" class="active">Workspaces</a>
+        {% if survey_url %}
+        <a href="/ankieta" target="_blank" rel="noopener">💬 Podziel się opinią</a>
+        {% endif %}
+    </nav>
+    <div class="idx-topbar-spacer"></div>
+    <!-- Badge użytkownika ukryty w trybie lokalnym (auth wyłączony -> username 'local'). -->
+    <div class="idx-user-pill" x-show="me.username && me.username !== 'local'">
+        <span>Zalogowany: <strong x-text="me.username"></strong></span>
+        <span class="role" :class="{ readonly: !isAdmin }" x-text="me.role"></span>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div x-data="indexView()" x-init="load()" style="display: contents;">
+
+    <!-- HERO -->
+    <section class="idx-hero">
+        <h1><span class="accent">RCN Workshop</span></h1>
+        <p>Eksploracja transakcji nieruchomości z rejestrów RCN — dla rzeczoznawców majątkowych. Filtruj po cenie, powierzchni, lokalizacji. Buduj kolekcje, eksportuj XLSX/GPKG, analizuj trendy.</p>
+        <div class="idx-hero-cta">
+            <template x-for="ws in heroLinks" :key="ws.id">
+                <a :href="`/workspaces/${ws.slug || ws.id}`" class="idx-btn"
+                   :class="ws._heroIdx === 0 ? 'idx-btn-primary' : 'idx-btn-secondary'"
+                   x-text="ws._heroIdx === 0 ? `Otwórz ${ws.name} →` : ws.name"></a>
+            </template>
+            <button class="idx-btn idx-btn-accent" x-show="isAdmin" @click="openCreate = true">+ Dodaj workspace</button>
+            <button class="idx-btn idx-btn-secondary" x-show="isAdmin" @click="$refs.zipInput.click()" :disabled="importing"
+                    title="Wgraj gotowy workspace spakowany przez `rcn pack`">
+                <span x-show="!importing">Wgraj .zip</span>
+                <span x-show="importing">Wgrywanie…</span>
+            </button>
+            <input type="file" x-ref="zipInput" accept=".zip" style="display: none" @change="importZip($event)">
+            <button class="idx-btn idx-btn-secondary" @click="openPluginsModal()"
+                    title="Dodatkowe analizy instalowane jako pliki .py">🧩 Wtyczki</button>
+            <input type="file" x-ref="pluginInput" accept=".py" style="display: none" @change="uploadPlugin($event)">
+        </div>
+    </section>
+
+    <!-- KPI TILES (zawsze widoczne, sumy z items) -->
+    <div class="idx-kpi-grid" x-show="!loading">
+        <div class="idx-kpi t-trans">
+            <span class="idx-kpi-label">Transakcje</span>
+            <span class="idx-kpi-value" x-text="fmt(kpiTotals.trans)"></span>
+            <span class="idx-kpi-meta"><span class="dot"></span><span x-text="`${items.length} ${pluralWs(items.length)}`"></span></span>
+        </div>
+        <div class="idx-kpi t-plots">
+            <span class="idx-kpi-label">Działki</span>
+            <span class="idx-kpi-value" x-text="fmt(kpiTotals.plots)"></span>
+            <span class="idx-kpi-meta"><span class="dot"></span>powiązane geometrią TERYT</span>
+        </div>
+        <div class="idx-kpi t-buildings">
+            <span class="idx-kpi-label">Budynki</span>
+            <span class="idx-kpi-value" x-text="fmt(kpiTotals.buildings)"></span>
+            <span class="idx-kpi-meta"><span class="dot"></span>z atrybutami EGiB</span>
+        </div>
+        <div class="idx-kpi t-locals">
+            <span class="idx-kpi-label">Lokale</span>
+            <span class="idx-kpi-value" x-text="fmt(kpiTotals.locals)"></span>
+            <span class="idx-kpi-meta"><span class="dot"></span>mieszkalne i użytkowe</span>
+        </div>
+    </div>
+
+    <!-- LOADING -->
+    <div x-show="loading" class="idx-empty">
+        <p>Wczytywanie workspaces…</p>
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div x-show="!loading && items.length === 0" class="idx-empty">
+        <p>Brak workspaces. Utwórz pierwszy, aby rozpocząć.</p>
+        <button class="idx-btn idx-btn-primary" x-show="isAdmin" @click="openCreate = true">+ Utwórz pierwszy workspace</button>
+    </div>
+
+    <!-- SEKCJA WORKSPACES -->
+    <template x-if="!loading && items.length > 0">
+        <div style="display: contents;">
+            <div class="idx-section-head">
+                <h2>Workspaces <span class="count" x-text="items.length"></span></h2>
+                <!-- Toolbar widoczny tylko w trybie tabela -->
+                <div class="idx-toolbar" x-show="displayMode === 'table'">
+                    <div class="idx-search-box">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <input type="text" x-model="filter" placeholder="Filtruj po nazwie / slugu…">
+                    </div>
+                </div>
+                <span class="meta" x-show="displayMode === 'cards'" x-text="`Ostatnia aktualizacja: ${formatLastUpdated()}`"></span>
+            </div>
+
+            <!-- TRYB CARDS (≤6 ws) -->
+            <div class="idx-cards-grid" x-show="displayMode === 'cards'">
+                <template x-for="ws in items" :key="ws.id">
+                    <a :href="`/workspaces/${ws.slug || ws.id}`" class="idx-card">
+                        <div class="idx-card-head">
+                            <div>
+                                <h3 x-text="ws.name"></h3>
+                                <span class="slug" x-show="ws.slug" x-text="`/workspaces/${ws.slug}`"></span>
+                            </div>
+                            <span class="idx-card-badge" x-show="ws.transaction_count > 0">aktywny</span>
+                        </div>
+                        <div class="idx-card-mini" x-html="miniMap(ws.slug || ws.id)"></div>
+                        <div class="idx-card-stats">
+                            <div class="idx-card-stat">
+                                <span class="idx-card-stat-label">Trans</span>
+                                <span class="idx-card-stat-value" x-text="fmt(ws.transaction_count)"></span>
+                            </div>
+                            <div class="idx-card-stat">
+                                <span class="idx-card-stat-label">Działki</span>
+                                <span class="idx-card-stat-value" x-text="fmt(ws.plot_count)"></span>
+                            </div>
+                            <div class="idx-card-stat">
+                                <span class="idx-card-stat-label">Budynki</span>
+                                <span class="idx-card-stat-value" x-text="fmt(ws.building_count)"></span>
+                            </div>
+                            <div class="idx-card-stat">
+                                <span class="idx-card-stat-label">Lokale</span>
+                                <span class="idx-card-stat-value" x-text="fmt(ws.local_count)"></span>
+                            </div>
+                        </div>
+                        <div class="idx-card-foot">
+                            <span x-text="`${ws.import_count} ${pluralImp(ws.import_count)} · od ${formatDate(ws.created_at)}`"></span>
+                            <span class="open">Otwórz →</span>
+                        </div>
+                    </a>
+                </template>
+            </div>
+
+            <!-- TRYB TABELA (>6 ws) -->
+            <div class="idx-table-wrap" x-show="displayMode === 'table'">
+                <table class="idx-ws-table">
+                    <thead>
+                        <tr>
+                            <th @click="sort('name')" :class="{ sorted: sortKey === 'name' }" style="width: 30%">
+                                Nazwa <span class="arrow" x-text="sortArrow('name')"></span>
+                            </th>
+                            <th @click="sort('transaction_count')" :class="{ sorted: sortKey === 'transaction_count' }" class="num">
+                                Transakcje <span class="arrow" x-text="sortArrow('transaction_count')"></span>
+                            </th>
+                            <th @click="sort('plot_count')" :class="{ sorted: sortKey === 'plot_count' }" class="num">
+                                Działki <span class="arrow" x-text="sortArrow('plot_count')"></span>
+                            </th>
+                            <th @click="sort('building_count')" :class="{ sorted: sortKey === 'building_count' }" class="num">
+                                Budynki <span class="arrow" x-text="sortArrow('building_count')"></span>
+                            </th>
+                            <th @click="sort('local_count')" :class="{ sorted: sortKey === 'local_count' }" class="num">
+                                Lokale <span class="arrow" x-text="sortArrow('local_count')"></span>
+                            </th>
+                            <th @click="sort('import_count')" :class="{ sorted: sortKey === 'import_count' }" class="num">
+                                Importy <span class="arrow" x-text="sortArrow('import_count')"></span>
+                            </th>
+                            <th @click="sort('created_at')" :class="{ sorted: sortKey === 'created_at' }">
+                                Utworzony <span class="arrow" x-text="sortArrow('created_at')"></span>
+                            </th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="ws in filteredAndSorted" :key="ws.id">
+                            <tr @click="window.location.href = `/workspaces/${ws.slug || ws.id}`">
+                                <td>
+                                    <div class="name-cell">
+                                        <div class="mini" x-html="miniMap(ws.slug || ws.id)"></div>
+                                        <div class="name-text">
+                                            <span class="name-main" x-text="ws.name"></span>
+                                            <span class="name-slug" x-show="ws.slug" x-text="`/workspaces/${ws.slug}`"></span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="num" x-text="fmt(ws.transaction_count)"></td>
+                                <td class="num" x-text="fmt(ws.plot_count)"></td>
+                                <td class="num" x-text="fmt(ws.building_count)"></td>
+                                <td class="num" x-text="fmt(ws.local_count)"></td>
+                                <td class="num" x-text="ws.import_count"></td>
+                                <td class="created" x-text="formatDate(ws.created_at)"></td>
+                                <td @click.stop>
+                                    <div class="row-actions">
+                                        <a :href="`/workspaces/${ws.slug || ws.id}`">Otwórz</a>
+                                        <a x-show="isAdmin" :href="`/workspaces/${ws.slug || ws.id}/settings`">Ustawienia</a>
+                                        <button x-show="isAdmin" class="danger" @click.stop="remove(ws)">Usuń</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                        <template x-if="filteredAndSorted.length === 0">
+                            <tr>
+                                <td colspan="8" style="padding: var(--space-12); text-align: center; color: var(--color-neutral-500);">
+                                    Brak workspaces pasujących do filtra "<span x-text="filter"></span>".
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <!-- FOOTER -->
+    <footer class="idx-footer">
+        <div class="idx-footer-inner">
+            <span class="idx-footer-version">RCN Workshop · v0.1</span>
+        </div>
+    </footer>
+
+    <!-- MODAL: Nowy workspace (zachowany z poprzedniej wersji) -->
+    <div x-show="openCreate" class="modal-backdrop" @click.self="openCreate = false" style="display: none;">
+        <div class="modal wide create-ws-modal">
+            <h2>Nowy workspace</h2>
+            <div class="create-ws-grid">
+                <label>Nazwa <span class="required">*</span>
+                    <input x-model="newName" @input="syncSlug()" type="text" autofocus placeholder="np. Łódź 2026 Q1">
+                </label>
+                <label>Slug w URL (opcjonalny)
+                    <input x-model="newSlug" @input="slugEdited = true" type="text"
+                           pattern="^[a-z][a-z0-9\-]*$"
+                           placeholder="auto z nazwy">
+                    <small class="muted">URL: <code x-text="'/workspaces/' + (newSlug || '(auto)')"></code></small>
+                </label>
+            </div>
+
+            <fieldset class="create-ws-section">
+                <legend>Pliki GML <span class="required">*</span> <small class="muted">(min. 1)</small></legend>
+                <input type="file" multiple accept=".gml,.xml" @change="setGmlFiles($event)">
+                <ul x-show="gmlFiles.length > 0" class="create-ws-filelist">
+                    <template x-for="(f, i) in gmlFiles" :key="i">
+                        <li>
+                            <span x-text="f.name"></span>
+                            <span class="muted tiny" x-text="'(' + Math.round(f.size / 1024) + ' KB)'"></span>
+                            <button class="btn-link" @click="removeGml(i)" title="Usuń">×</button>
+                        </li>
+                    </template>
+                </ul>
+                <small class="muted">Wszystkie zostaną zaimportowane w trybie <code>snapshot</code> (w bazie oznaczymy transakcje wycofane z portalu w zakresie dat pliku).</small>
+            </fieldset>
+
+            <fieldset class="create-ws-section">
+                <legend>Warstwy GPKG <small class="muted">(opcjonalne — pokazują się na mapie jako overlays)</small></legend>
+                <template x-for="(entry, i) in gpkgLayers" :key="entry._key">
+                    <div class="gpkg-entry">
+                        <input type="text" x-model="entry.name" placeholder="Nazwa warstwy (np. EGIB Piaseczno)" class="gpkg-name">
+                        <input type="file" accept=".gpkg" @change="entry.file = $event.target.files[0]">
+                        <button class="btn-ghost btn-sm" @click="gpkgLayers.splice(i, 1)" title="Usuń warstwę">×</button>
+                    </div>
+                </template>
+                <button class="btn-ghost btn-sm" @click="addGpkgLayer()" :disabled="gpkgLayers.length >= 5">
+                    + Dodaj warstwę GPKG
+                </button>
+            </fieldset>
+
+            <div class="row-end">
+                <button class="ghost" @click="openCreate = false" :disabled="saving">Anuluj</button>
+                <button class="primary" @click="create()" :disabled="!newName.trim() || gmlFiles.length === 0 || saving">
+                    <span x-show="!saving">Utwórz</span>
+                    <span x-show="saving">Uploading… <span x-text="uploadPct + '%'"></span></span>
+                </button>
+            </div>
+            <template x-if="createError">
+                <p class="create-ws-error" x-text="createError"></p>
+            </template>
+        </div>
+    </div>
+
+    <!-- MODAL: Wtyczki (globalne, pliki .py w data/plugins/) -->
+    <div x-show="openPlugins" class="modal-backdrop" @click.self="openPlugins = false"
+         @keydown.escape.window="openPlugins = false" style="display: none;">
+        <div class="modal wide">
+            <h2>🧩 Wtyczki</h2>
+            <p class="muted" style="margin-bottom: var(--space-4);">
+                Wtyczki to dodatkowe analizy dostarczane jako pojedyncze pliki <code>.py</code> —
+                po zainstalowaniu pojawiają się w koszyku transakcji pod przyciskiem „Wtyczki".
+            </p>
+            <table class="data" x-show="plugins.length > 0">
+                <thead>
+                    <tr><th>Nazwa</th><th>Wersja</th><th>Autor</th><th>Rodzaj</th><th>Status</th><th x-show="isAdmin"></th></tr>
+                </thead>
+                <tbody>
+                    <template x-for="p in plugins" :key="p.id + (p.filename || '')">
+                        <tr>
+                            <td><strong x-text="p.name"></strong><br><span class="muted tiny" x-text="p.description"></span></td>
+                            <td x-text="p.version || '—'"></td>
+                            <td x-text="p.author || '—'"></td>
+                            <td x-text="p.kind"></td>
+                            <td>
+                                <span x-show="p.error" style="color: var(--color-danger-500);" x-text="'błąd: ' + p.error"></span>
+                                <span x-show="!p.error && p.enabled" style="color: var(--color-success-600, #16a34a);">aktywna</span>
+                                <span x-show="!p.error && !p.enabled" class="muted">wyłączona</span>
+                            </td>
+                            <td x-show="isAdmin" style="white-space: nowrap;">
+                                <button class="btn-ghost btn-sm" x-show="!p.error" @click="togglePlugin(p)"
+                                        x-text="p.enabled ? 'Wyłącz' : 'Włącz'"></button>
+                                <button class="btn-ghost btn-sm" style="color: var(--color-danger-500);" @click="removePlugin(p)">Usuń</button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            <p class="muted" x-show="!pluginsLoading && plugins.length === 0">Brak zainstalowanych wtyczek.</p>
+            <div class="row-end" style="margin-top: var(--space-4);">
+                <button class="ghost" @click="rescanPlugins()">Odśwież</button>
+                <button class="primary" x-show="isAdmin" @click="$refs.pluginInput.click()" :disabled="pluginUploading">
+                    <span x-show="!pluginUploading">Wgraj wtyczkę (.py)</span>
+                    <span x-show="pluginUploading">Wgrywanie…</span>
+                </button>
+            </div>
+            <template x-if="pluginError">
+                <p class="create-ws-error" x-text="pluginError"></p>
+            </template>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function indexView() {
+    return {
+        items: [],
+        me: { username: '', role: 'readonly' },
+        get isAdmin() { return this.me.role === 'admin'; },
+        loading: true,
+
+        // sortowanie / filtrowanie (tylko tryb tabela)
+        filter: '',
+        sortKey: 'transaction_count',
+        sortDir: -1,  // domyślnie DESC po transakcjach -- największy ws na górze
+
+        // modal create
+        openCreate: false,
+        newName: '',
+        newSlug: '',
+        slugEdited: false,
+        saving: false,
+        importing: false,
+        uploadPct: 0,
+        createError: '',
+        gmlFiles: [],
+        gpkgLayers: [],
+        _gpkgKey: 0,
+
+        // modal wtyczek
+        openPlugins: false,
+        plugins: [],
+        pluginsLoading: false,
+        pluginUploading: false,
+        pluginError: '',
+
+        // === computed ===
+        get displayMode() {
+            // Próg 6: do 6 ws -- karty (spokojny pierwszy kontakt),
+            // od 7 ws -- kompaktowa tabela z filtrem i sortowaniem.
+            return this.items.length <= 6 ? 'cards' : 'table';
+        },
+        get kpiTotals() {
+            return this.items.reduce((acc, ws) => ({
+                trans: acc.trans + (ws.transaction_count || 0),
+                plots: acc.plots + (ws.plot_count || 0),
+                buildings: acc.buildings + (ws.building_count || 0),
+                locals: acc.locals + (ws.local_count || 0),
+            }), { trans: 0, plots: 0, buildings: 0, locals: 0 });
+        },
+        get heroLinks() {
+            // Hero pokazuje 1-2 największe workspaces jako szybkie wejście.
+            return [...this.items]
+                .sort((a, b) => (b.transaction_count || 0) - (a.transaction_count || 0))
+                .slice(0, 2)
+                .map((ws, i) => ({ ...ws, _heroIdx: i }));
+        },
+        get filteredAndSorted() {
+            const q = this.filter.trim().toLowerCase();
+            const filtered = q
+                ? this.items.filter(ws =>
+                    (ws.name || '').toLowerCase().includes(q) ||
+                    (ws.slug || '').toLowerCase().includes(q))
+                : this.items;
+            const sorted = [...filtered].sort((a, b) => {
+                const va = a[this.sortKey], vb = b[this.sortKey];
+                if (typeof va === 'number') return (va - vb) * this.sortDir;
+                return String(va || '').localeCompare(String(vb || ''), 'pl') * this.sortDir;
+            });
+            return sorted;
+        },
+
+        // === metody ===
+        sort(key) {
+            if (this.sortKey === key) this.sortDir = -this.sortDir;
+            else { this.sortKey = key; this.sortDir = 1; }
+        },
+        sortArrow(key) {
+            if (this.sortKey !== key) return '⇅';
+            return this.sortDir === 1 ? '▲' : '▼';
+        },
+        fmt(n) {
+            if (n == null) return '0';
+            return n.toLocaleString('pl-PL');
+        },
+        formatDate(ts) {
+            if (!ts) return '';
+            const d = new Date(ts * 1000);
+            return d.toLocaleDateString('pl-PL', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        },
+        formatLastUpdated() {
+            if (this.items.length === 0) return '—';
+            const max = Math.max(...this.items.map(w => w.created_at || 0));
+            return this.formatDate(max);
+        },
+        pluralWs(n) {
+            if (n === 1) return 'workspace';
+            if (n >= 2 && n <= 4) return 'workspaces';
+            return 'workspaces';
+        },
+        pluralImp(n) {
+            if (n === 1) return 'import GML';
+            return 'importów GML';
+        },
+        miniMap(seed) {
+            // Deterministyczne kropki w SVG -- wygląda jak mini podgląd mapy.
+            const s = String(seed || 'x');
+            const c = s.charCodeAt(0);
+            const colors = ['#1E40AF', '#0EA5E9', '#EA580C', '#16A34A'];
+            const w = 200, h = 80;
+            const dotsCount = 4 + (c % 5);
+            let dots = '';
+            for (let i = 0; i < dotsCount; i++) {
+                const x = 20 + ((c + i * 23) % (w - 40));
+                const y = 10 + ((c + i * 17) % (h - 20));
+                const col = colors[i % colors.length];
+                dots += `<circle cx="${x}" cy="${y}" r="2" fill="${col}"/>`;
+            }
+            return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">${dots}</svg>`;
+        },
+
+        setGmlFiles(ev) { this.gmlFiles = Array.from(ev.target.files || []); },
+        removeGml(i) { this.gmlFiles.splice(i, 1); },
+        addGpkgLayer() {
+            if (this.gpkgLayers.length >= 5) return;
+            this._gpkgKey++;
+            this.gpkgLayers.push({ _key: this._gpkgKey, name: '', file: null });
+        },
+        syncSlug() {
+            if (this.slugEdited) return;
+            const s = (this.newName || '')
+                .trim()
+                .toLowerCase()
+                .normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .replace(/ł/g, 'l').replace(/Ł/g, 'l')
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            this.newSlug = s.replace(/^(\d)/, 'w-$1');
+        },
+        async load() {
+            this.loading = true;
+            try {
+                const rm = await fetch('/api/me');
+                if (rm.ok) this.me = await rm.json();
+            } catch (e) { /* ignore */ }
+            const r = await fetch('/api/workspaces');
+            if (r.ok) this.items = await r.json();
+            this.loading = false;
+            // Deep-link z koszyka workspace'u: /workspaces#wtyczki otwiera modal.
+            if (window.location.hash === '#wtyczki') this.openPluginsModal();
+        },
+        async openPluginsModal() {
+            this.openPlugins = true;
+            this.pluginError = '';
+            await this.loadPlugins();
+        },
+        async loadPlugins() {
+            this.pluginsLoading = true;
+            try {
+                const r = await fetch('/api/plugins');
+                if (r.ok) this.plugins = await r.json();
+            } finally {
+                this.pluginsLoading = false;
+            }
+        },
+        async rescanPlugins() {
+            this.pluginError = '';
+            const r = await fetch('/api/plugins/rescan', { method: 'POST' });
+            if (r.ok) this.plugins = await r.json();
+        },
+        async uploadPlugin(e) {
+            // Dwufazowo: preview (walidacja po stronie serwera) -> dialog
+            // potwierdzenia (wtyczka = wykonywalny kod!) -> instalacja.
+            const input = e.target;
+            const f = input.files && input.files[0];
+            if (!f) return;
+            this.pluginUploading = true;
+            this.pluginError = '';
+            try {
+                const send = (extra) => {
+                    const fd = new FormData();
+                    fd.append('file', f);
+                    for (const [k, v] of Object.entries(extra || {})) fd.append(k, v);
+                    return fetch('/api/plugins/upload', { method: 'POST', body: fd });
+                };
+                let resp = await send();
+                if (!resp.ok) {
+                    let msg = `HTTP ${resp.status}`;
+                    try { const j = await resp.json(); if (j.detail) msg = j.detail; } catch (_) {}
+                    throw new Error(msg);
+                }
+                const preview = (await resp.json()).plugin;
+                const ok = confirm(
+                    `Zainstalować wtyczkę „${preview.name}"` +
+                    (preview.version ? ` v${preview.version}` : '') +
+                    (preview.author ? ` (autor: ${preview.author})` : '') + `?\n\n` +
+                    `UWAGA: wtyczka to kod wykonywany z prawami użytkownika aplikacji. ` +
+                    `Wgrywaj wyłącznie wtyczki otrzymane od autora aplikacji.`
+                );
+                if (!ok) return;
+                resp = await send({ confirm: 'true' });
+                if (resp.status === 409) {
+                    if (!confirm(`Wtyczka „${preview.id}" już istnieje. Nadpisać?`)) return;
+                    resp = await send({ confirm: 'true', overwrite: 'true' });
+                }
+                if (!resp.ok) {
+                    let msg = `HTTP ${resp.status}`;
+                    try { const j = await resp.json(); if (j.detail) msg = j.detail; } catch (_) {}
+                    throw new Error(msg);
+                }
+                await this.loadPlugins();
+            } catch (err) {
+                this.pluginError = 'Instalacja nieudana: ' + (err.message || err);
+            } finally {
+                this.pluginUploading = false;
+                input.value = '';
+            }
+        },
+        async togglePlugin(p) {
+            this.pluginError = '';
+            const r = await fetch(`/api/plugins/${p.id}/enable`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: !p.enabled }),
+            });
+            if (!r.ok) {
+                try { this.pluginError = (await r.json()).detail || `HTTP ${r.status}`; } catch (_) { this.pluginError = `HTTP ${r.status}`; }
+            }
+            await this.loadPlugins();
+        },
+        async removePlugin(p) {
+            if (!confirm(`Usunąć wtyczkę „${p.name}"?`)) return;
+            this.pluginError = '';
+            const r = await fetch(`/api/plugins/${p.id}`, { method: 'DELETE' });
+            if (!r.ok) {
+                try { this.pluginError = (await r.json()).detail || `HTTP ${r.status}`; } catch (_) { this.pluginError = `HTTP ${r.status}`; }
+            }
+            await this.loadPlugins();
+        },
+        async importZip(e) {
+            // Wgranie gotowego workspace z paczki .zip (`rcn pack`). Endpoint
+            // konsumencki POST /api/workspaces/import; 409 -> pyta o nadpisanie.
+            const input = e.target;
+            const f = input.files && input.files[0];
+            if (!f) return;
+            this.importing = true;
+            try {
+                const send = (overwrite) => {
+                    const fd = new FormData();
+                    fd.append('file', f);
+                    if (overwrite) fd.append('overwrite', 'true');
+                    return fetch('/api/workspaces/import', { method: 'POST', body: fd });
+                };
+                let resp = await send(false);
+                if (resp.status === 409) {
+                    if (!confirm(`Workspace o tej nazwie już istnieje. Nadpisać?`)) { this.importing = false; input.value = ''; return; }
+                    resp = await send(true);
+                }
+                if (!resp.ok) {
+                    let msg = `HTTP ${resp.status}`;
+                    try { const j = await resp.json(); if (j.detail) msg = j.detail; } catch (_) {}
+                    throw new Error(msg);
+                }
+                const ws = await resp.json();
+                window.location.href = `/workspaces/${ws.slug || ws.id}`;
+            } catch (err) {
+                alert('Import nieudany: ' + (err.message || err));
+            } finally {
+                this.importing = false;
+                input.value = '';  // pozwól wgrać ten sam plik ponownie
+            }
+        },
+        async create() {
+            this.createError = '';
+            if (this.gmlFiles.length === 0) {
+                this.createError = 'Wybierz co najmniej 1 plik GML.';
+                return;
+            }
+            this.saving = true;
+            this.uploadPct = 0;
+            const fd = new FormData();
+            fd.append('name', this.newName.trim());
+            if (this.newSlug.trim()) fd.append('slug', this.newSlug.trim());
+            for (const f of this.gmlFiles) fd.append('gml_files', f);
+            for (const entry of this.gpkgLayers) {
+                if (!entry.file) continue;
+                fd.append('gpkg_names', (entry.name || '').trim());
+                fd.append('gpkg_files', entry.file);
+            }
+            try {
+                const newWs = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/api/workspaces/new');
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) this.uploadPct = Math.round(100 * e.loaded / e.total);
+                    };
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            reject(new Error(`HTTP ${xhr.status}: ${xhr.responseText}`));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.send(fd);
+                });
+                this.openCreate = false;
+                this.newName = '';
+                this.newSlug = '';
+                this.slugEdited = false;
+                this.gmlFiles = [];
+                this.gpkgLayers = [];
+                this.uploadPct = 0;
+                window.location.href = `/workspaces/${newWs.slug || newWs.id}`;
+            } catch (err) {
+                this.createError = err.message || String(err);
+            } finally {
+                this.saving = false;
+            }
+        },
+        async remove(ws) {
+            if (!confirm(`Usunąć workspace "${ws.name}" wraz z danymi?`)) return;
+            const r = await fetch(`/api/workspaces/${ws.id}`, { method: 'DELETE' });
+            if (r.ok) await this.load();
+            else alert('Nie udało się usunąć workspace.');
+        },
+    };
+}
+</script>
+{% endblock %}

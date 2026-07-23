@@ -1,0 +1,76 @@
+[project]
+name = "rcn-workshop"
+# Synchronizować z app/version.py (PEP 440: "0.2.0b1" == "0.2.0-beta.1").
+version = "0.2.0b1"
+description = "Self-hosted web tool for merging, filtering and exporting RCN GML files"
+readme = "README.md"
+license = {text = "AGPL-3.0-or-later"}
+authors = [
+    {name = "Michał Raj"},
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.12",
+    "shapely>=2.0",
+    "pyproj>=3.6",
+    # pyogrio: czytnik GPKG na systemowym GDAL+libproj (Fiona usunięta 2026-07 --
+    # nieimportowana; historycznie powodowała segfault statycznie zlinkowanej
+    # libproj vs pyproj w jednym procesie, test Sieradz 2026-05-01).
+    "pyogrio>=0.9",
+    "psutil>=6.0",
+    "jinja2>=3.1",
+    "httpx>=0.27",
+    "lxml>=5.3",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+# Launcher okienkowy (natywne okno zamiast czarnej konsoli) -- patrz desktop.py.
+# Na Windows pywebview używa Edge WebView2 (Chromium).
+desktop = [
+    "pywebview>=5.0",
+]
+# Budowa portable .exe (PyInstaller). Patrz RCN-Workshop.spec.
+build = [
+    "pyinstaller>=6.0",
+]
+dev = [
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "httpx>=0.27",
+]
+lxml = [
+    "lxml>=5.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/emer-MR/rcn-workshop"
+Repository = "https://github.com/emer-MR/rcn-workshop"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM", "C4"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*", "rcn_core*"]

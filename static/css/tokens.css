@@ -1,0 +1,132 @@
+/* ============================================================
+   RCN Workshop — Design Tokens
+   Modern Utilitarian Calmed (light only)
+
+   Wprowadzone w PR1 redesignu (gałąź redesign/v1-utilitarian-calmed).
+   Wzór: mocks/redesign-v1-utilitarian-calmed.html
+
+   Wszystkie nowe komponenty UI MUSZĄ używać tych tokenów zamiast
+   hardkodowanych wartości. Stare style (sprzed PR1) będą migrowane
+   na te tokeny w kolejnych PR-ach.
+============================================================ */
+
+:root {
+    /* === NEUTRALE (warm grayscale, 8 stopni) ============== */
+    --color-neutral-50:  #FAFAF9;   /* tło aplikacji */
+    --color-neutral-100: #F5F5F4;   /* tło sekcji, hover-base */
+    --color-neutral-200: #E7E5E4;   /* borders */
+    --color-neutral-300: #D6D3D1;   /* divider, input border default */
+    --color-neutral-400: #A8A29E;   /* placeholder, ikony nieaktywne */
+    --color-neutral-500: #78716C;   /* tekst muted, labels */
+    --color-neutral-700: #44403C;   /* tekst secondary */
+    --color-neutral-900: #1C1917;   /* tekst primary */
+    --color-neutral-950: #0C0A09;   /* nagłówki na hero */
+
+    /* === PRIMARY (głęboki granat, ewolucja #1F4E79) ======= */
+    --color-primary-50:  #EFF4FB;
+    --color-primary-100: #DBE6F4;
+    --color-primary-200: #B6CCE9;   /* focus ring */
+    --color-primary-500: #2D5DA8;   /* link hover, akcent secondary */
+    --color-primary-600: #244C8E;
+    --color-primary-700: #1E3A8A;   /* primary button, brand */
+    --color-primary-900: #14275A;   /* primary button hover */
+
+    /* === ACCENT (amber, "act now") ======================== */
+    --color-accent-50:  #FFFBEB;
+    --color-accent-100: #FEF3C7;
+    --color-accent-500: #F59E0B;   /* eksport, koszyk z items, aureola markera */
+    --color-accent-600: #D97706;
+    --color-accent-700: #B45309;
+
+    /* === STATUS (3 kolory, koniec) ======================== */
+    --color-success-50:  #ECFDF5;
+    --color-success-500: #10B981;
+    --color-warning-500: #F59E0B;  /* = accent (jedna funkcja podwójna) */
+    --color-danger-50:   #FEF2F2;
+    --color-danger-500:  #DC2626;
+
+    /* === MAPA — paleta typów nieruchomości ================
+       Te kolory NIE są neutralne wizualnie — używane na mapie
+       (markery + obrysy działek/budynków) i w badges typów. */
+    --color-type-grunt-niezab: #1E40AF;  /* indigo deep */
+    --color-type-grunt-zab:    #0EA5E9;  /* sky */
+    --color-type-budynek:      #EA580C;  /* orange */
+    --color-type-lokal:        #16A34A;  /* green */
+    --color-type-inne:         #64748B;  /* slate */
+
+    /* === SPACING (8 pt grid) ============================== */
+    --space-0_5: 2px;
+    --space-1:   4px;
+    --space-2:   8px;
+    --space-3:   12px;
+    --space-4:   16px;
+    --space-5:   20px;
+    --space-6:   24px;
+    --space-8:   32px;
+    --space-10:  40px;
+    --space-12:  48px;
+    --space-16:  64px;
+    --space-20:  80px;
+    --space-24:  96px;
+
+    /* === RADIUS (4 wartości, koniec) ====================== */
+    --radius-sm:   4px;   /* inputy, badges, chipy */
+    --radius-md:   8px;   /* przyciski, drobne karty */
+    --radius-lg:   12px;  /* modale, większe karty */
+    --radius-full: 9999px;
+
+    /* === SHADOWS (4 poziomy, hierarchia głębi) ============ */
+    --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.05);
+    --shadow-sm: 0 2px 4px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04);
+    --shadow-md: 0 8px 24px rgba(28, 25, 23, 0.08), 0 2px 8px rgba(28, 25, 23, 0.04);
+    --shadow-lg: 0 24px 48px rgba(28, 25, 23, 0.16), 0 4px 16px rgba(28, 25, 23, 0.08);
+
+    /* === MOTION =========================================== */
+    --ease:          cubic-bezier(0.4, 0, 0.2, 1);
+    --duration-fast: 150ms;   /* hover, focus */
+    --duration-base: 250ms;   /* modal, drawer */
+    --duration-slow: 400ms;   /* page transitions, marker focus pulse */
+
+    /* === TYPOGRAFIA ======================================= */
+    --font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Consolas, monospace;
+
+    --text-xs:   12px;   /* tiny labels, badges */
+    --text-sm:   14px;   /* secondary text, table dense */
+    --text-base: 16px;   /* body default */
+    --text-md:   18px;   /* emphasized body, sidebar title */
+    --text-lg:   20px;   /* section headings */
+    --text-xl:   24px;   /* page heading */
+    --text-2xl:  32px;   /* hero numbers */
+    --text-3xl:  48px;   /* splash screens */
+
+    --line-tight:   1.2;
+    --line-normal:  1.5;
+    --line-relaxed: 1.65;
+
+    --weight-regular:  400;
+    --weight-medium:   500;
+    --weight-semibold: 600;
+    --weight-bold:     700;
+
+    /* === LAYOUT ROZMIARY ================================== */
+    --topbar-h:    64px;
+    --toolbar-h:   60px;
+    --sidebar-w:   380px;
+    --sidebar-collapsed-w: 48px;
+    --row-h:       44px;
+    --control-h:   40px;
+    --btn-sm-h:    32px;
+    --icon-btn-w:  40px;
+
+    /* === Z-INDEX (uporządkowana skala) ==================== */
+    --z-dropdown:    100;
+    --z-sticky:      200;
+    --z-leaflet:    1000;  /* mapa Leaflet ma własne z-index */
+    --z-leaflet-control: 1001;
+    --z-popover:    1500;
+    --z-toast:      1800;
+    --z-modal-backdrop: 2000;
+    --z-modal:      2010;
+    --z-tooltip:    2100;
+}

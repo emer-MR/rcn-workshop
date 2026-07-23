@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}Ustawienia: {{ workspace_name }} — RCN Workshop{% endblock %}
+
+{% block extra_head %}
+<script>
+  window.__WORKSPACE_ID__ = "{{ workspace_id }}";
+  window.__WORKSPACE_NAME__ = "{{ workspace_name | e }}";
+  window.__HAS_PRODUCER__ = {{ has_producer | tojson }};
+</script>
+{% endblock %}
+
+{% block topnav %}
+<header class="bg-rcn-primary text-white shadow-sm">
+    <div class="flex items-center gap-4 px-4 py-2">
+        <a href="/workspaces" class="font-semibold tracking-tight text-lg">RCN Workshop</a>
+        <span class="text-white/60">/</span>
+        <a href="/workspaces/{{ workspace_id }}" class="opacity-90 hover:opacity-100 transition-opacity">{{ workspace_name }}</a>
+        <span class="text-white/60">/</span>
+        <span class="opacity-100">Ustawienia</span>
+        <nav class="flex gap-4 ml-auto text-sm">
+            <a href="/workspaces" class="opacity-80 hover:opacity-100 transition-opacity">Workspaces</a>
+            <a href="/workspaces/{{ workspace_id }}" class="opacity-80 hover:opacity-100 transition-opacity">← Wróć do widoku</a>
+        </nav>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="ws-settings" x-data="workspaceSettings()" x-init="boot()">
+
+    <div class="ws-settings-toast" x-show="toast.visible" x-cloak x-transition
+         :class="toast.kind === 'error' ? 'is-error' : 'is-ok'"
+         role="status" aria-live="polite">
+        <span x-text="toast.text"></span>
+    </div>
+
+    <h1 class="ws-settings-title">Ustawienia workspace</h1>
+    <p class="ws-settings-sub muted">
+        <span x-text="info.name || '...'"></span> ·
+        <code x-text="info.slug || '—'"></code> ·
+        <span x-text="info.transaction_count.toLocaleString('pl-PL') + ' transakcji'"></span>
+    </p>
+
+    <!-- ===================== META ===================== -->
+    <section class="ws-card" x-show="!loading">
+        <header class="ws-card-head">
+            <h2>Metadane</h2>
+            <p class="muted">Nazwa wyświetlana, slug w URL i notatka administratora.</p>
+        </header>
+        <div class="ws-card-body">
+            <label class="ws-field">
+                <span>Nazwa</span>
+                <input type="text" x-model="meta.name" :disabled="!isAdmin" maxlength="120">
+            </label>
+            <label class="ws-field">
+                <span>Slug (URL)</span>
+                <input type="text" x-model="meta.slug" :disabled="!isAdmin" maxlength="63"
+                       pattern="^[a-z][a-z0-9-]+$"
+                       placeholder="np. lodz, sieradz">
+                <small class="muted">^[a-z][a-z0-9-]+$ — bez polskich znaków, bez spacji</small>
+            </label>
+            <label class="ws-field">
+                <span>Notatka</span>
+                <textarea x-model="meta.notes" :disabled="!isAdmin" rows="3"
+                          placeholder="Notatka admina widoczna tylko tu (np. źródło danych, data ostatniego importu)"></textarea>
+            </label>
+        </div>
+        <footer class="ws-card-foot">
+            <button class="btn-ghost" @click="metaReset()" :disabled="!isAdmin || metaSaving">Cofnij zmiany</button>
+            <button class="btn-primary" @click="metaSave()" :disabled="!isAdmin || metaSaving || !metaDirty">
+                <span x-show="!metaSaving">Zapisz</span>
+                <span x-show="metaSaving">Zapisuję...</span>
+            </button>
+        </footer>
+    </section>
+
+    {% if has_producer %}
+    <!-- ===================== CUSTOM LAYERS GPKG (PRODUCENT) ===================== -->
+    <section class="ws-card" x-show="!loading">
+        <header class="ws-card-head">
+            <h2>Warstwy GPKG (EGiB)</h2>
+            <p class="muted">Działki/budynki z bazy EGIB jako overlay na mapie. Po dodaniu uruchom „Wzbogać geometrię z EGIB" w sekcji Ulepszenia, żeby przepisać centroidy do plots/buildings.</p>
+        </header>
+        <div class="ws-card-body">
+            <table class="ws-layers-table" x-show="customLayers.length > 0">
+                <thead>
+                    <tr><th>Nazwa</th><th>Slug</th><th>Plik</th><th>Rozmiar</th><th></th></tr>
+                </thead>
+                <tbody>
+                    <template x-for="l in customLayers" :key="l.slug">
+                        <tr>
+                            <td x-text="l.name"></td>
+                            <td><code x-text="l.slug"></code></td>
+                            <td class="muted tiny" x-text="l.file"></td>
+                            <td class="muted tiny" x-text="formatBytes(l.size_bytes)"></td>
+                            <td><button class="btn-danger btn-sm" @click="deleteLayer(l)" :disabled="!isAdmin">Usuń</button></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            <div class="muted ws-empty" x-show="customLayers.length === 0">
+                Brak warstw — dodaj GPKG poniżej.
+            </div>
+
+            <div class="ws-layer-add" x-show="isAdmin">
+                <input type="text" x-model="newLayer.name" placeholder="Nazwa warstwy (np. „Działki EGIB Sieradz")" maxlength="80">
+                <input type="file" accept=".gpkg" @change="newLayer.file = $event.target.files[0]; newLayer.fileName = $event.target.files[0]?.name || ''">
+                <button class="btn-primary btn-sm" @click="addLayer()" :disabled="!newLayer.name || !newLayer.file || newLayer.uploading">
+                    <span x-show="!newLayer.uploading">+ Dodaj warstwę</span>
+                    <span x-show="newLayer.uploading">Wgrywanie...</span>
+                </button>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- ===================== UPLOAD GML ===================== -->
+    <section class="ws-card" x-show="!loading && isAdmin">
+        <header class="ws-card-head">
+            <h2>Upload GML (RCN)</h2>
+            <p class="muted">
+                Dodaj plik GML z transakcjami RCN. Tryb <strong>snapshot</strong> dla pełnego okresu (zastępuje transakcje w zakresie dat z pliku),
+                <strong>delta</strong> dla przyrostu (dodaje/aktualizuje bez kasowania pozostałych).
+                Banner postępu pojawi się w widoku mapy/tabeli; tutaj nowy import widoczny w Historii poniżej.
+            </p>
+        </header>
+        <div class="ws-card-body">
+            <div class="ws-layer-add">
+                <input type="file" accept=".gml,.xml"
+                       @change="newGml.file = $event.target.files[0]; newGml.fileName = $event.target.files[0]?.name || ''">
+                <select x-model="newGml.tryb" style="padding:0.4rem 0.6rem;border:1px solid #cbd5e1;border-radius:4px;">
+                    <option value="snapshot">snapshot (pełny okres)</option>
+                    <option value="delta">delta (przyrost)</option>
+                </select>
+                <button class="btn-primary btn-sm" @click="uploadGml()"
+                        :disabled="!newGml.file || newGml.uploading">
+                    <span x-show="!newGml.uploading">+ Wgraj GML</span>
+                    <span x-show="newGml.uploading">Wgrywanie...</span>
+                </button>
+            </div>
+            <p class="muted tiny" x-show="newGml.fileName" style="margin-top:0.5rem;">
+                Wybrany: <code x-text="newGml.fileName"></code>
+            </p>
+        </div>
+    </section>
+
+    <!-- ===================== ULEPSZENIA ===================== -->
+    <section class="ws-card" x-show="!loading">
+        <header class="ws-card-head">
+            <h2>Ulepszenia danych</h2>
+            <p class="muted">Operacje uruchamiane manualnie. Każde działa w osobnym procesie — segfault Fiona+pyproj nie wpływa na inne ulepszenia ani na UI.</p>
+        </header>
+        <div class="ws-card-body">
+            <template x-for="enh in enhancements" :key="enh.op">
+                <div class="ws-enh">
+                    <div class="ws-enh-head">
+                        <h3 x-text="enh.label"></h3>
+                        <span class="ws-enh-status" :class="`is-${enh.lastStatus || 'never'}`" x-text="enh.statusText"></span>
+                    </div>
+                    <p class="muted" x-text="enh.description"></p>
+                    <div class="ws-enh-meta tiny muted" x-show="enh.lastRun">
+                        Ostatnio: <span x-text="formatDate(enh.lastRun?.started_at)"></span>
+                        <span x-show="enh.lastRun?.duration_s">· <span x-text="(enh.lastRun.duration_s).toFixed(1) + 's'"></span></span>
+                        <span x-show="enh.lastRun?.triggered_by">· przez <span x-text="enh.lastRun.triggered_by"></span></span>
+                        <span x-show="enh.lastRun?.diagnostics_json" class="ws-enh-diag">
+                            · <code x-text="enh.lastRun.diagnostics_json"></code>
+                        </span>
+                        <span x-show="enh.lastRun?.error_msg" class="ws-enh-error">
+                            · <span x-text="enh.lastRun.error_msg"></span>
+                        </span>
+                    </div>
+                    <div class="ws-enh-actions">
+                        <button class="btn-primary btn-sm"
+                                @click="runEnhancement(enh.op)"
+                                :disabled="!isAdmin || enh.running || enh.disabled">
+                            <span x-show="!enh.running">▶ Uruchom</span>
+                            <span x-show="enh.running">Uruchomiono...</span>
+                        </button>
+                        <button class="btn-ghost btn-sm" @click="enh.historyOpen = !enh.historyOpen">
+                            <span x-show="!enh.historyOpen">Historia</span>
+                            <span x-show="enh.historyOpen">Ukryj historię</span>
+                        </button>
+                    </div>
+                    <div class="ws-enh-history" x-show="enh.historyOpen" x-cloak>
+                        <table class="ws-enh-history-table">
+                            <thead><tr><th>Status</th><th>Start</th><th>Czas</th><th>Triggered by</th><th>Diagnostics / Error</th></tr></thead>
+                            <tbody>
+                                <template x-for="r in (enh.history || [])" :key="r.id">
+                                    <tr>
+                                        <td><span class="ws-enh-status" :class="`is-${r.status}`" x-text="r.status"></span></td>
+                                        <td class="tiny" x-text="formatDate(r.started_at)"></td>
+                                        <td class="tiny" x-text="r.duration_s ? r.duration_s.toFixed(1) + 's' : '—'"></td>
+                                        <td class="tiny" x-text="r.triggered_by || '—'"></td>
+                                        <td class="tiny" x-text="r.diagnostics_json || r.error_msg || '—'"></td>
+                                    </tr>
+                                </template>
+                                <tr x-show="!(enh.history && enh.history.length)"><td colspan="5" class="muted">Brak historii</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </section>
+
+    <!-- ===================== HISTORIA IMPORTÓW ===================== -->
+    <section class="ws-card" x-show="!loading">
+        <header class="ws-card-head">
+            <h2>Historia importów GML</h2>
+            <p class="muted">Wszystkie pliki GML wgrane do tego workspace. Usunięcie importu kasuje też powiązane transakcje.</p>
+        </header>
+        <div class="ws-card-body">
+            <table class="ws-imports-table">
+                <thead>
+                    <tr><th>Plik</th><th>Tryb</th><th>Status</th><th>Data</th><th>Tx</th><th>Pl/Bd/Lk</th><th></th></tr>
+                </thead>
+                <tbody>
+                    <template x-for="imp in imports" :key="imp.id">
+                        <tr>
+                            <td class="tiny" x-text="imp.original_filename"></td>
+                            <td><code x-text="imp.tryb"></code></td>
+                            <td>
+                                <span class="ws-import-status" :class="`is-${imp.status}`" x-text="imp.status"></span>
+                                <span x-show="imp.status === 'processing'" class="tiny muted" x-text="(imp.progress_pct || 0) + '%'"></span>
+                                <span x-show="imp.error_msg" class="tiny ws-enh-error" x-text="' · ' + imp.error_msg"></span>
+                            </td>
+                            <td class="tiny muted" x-text="formatDate(imp.upload_timestamp)"></td>
+                            <td x-text="(imp.transaction_count || 0).toLocaleString('pl-PL')"></td>
+                            <td class="tiny muted">
+                                <span x-text="(imp.plot_count||0) + ' / ' + (imp.building_count||0) + ' / ' + (imp.local_count||0)"></span>
+                            </td>
+                            <td><button class="btn-danger btn-sm" @click="deleteImport(imp)" :disabled="!isAdmin">Usuń</button></td>
+                        </tr>
+                    </template>
+                    <tr x-show="!imports.length"><td colspan="7" class="muted">Brak importów</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ===================== STREFA NIEBEZPIECZNA ===================== -->
+    <section class="ws-card ws-card-danger" x-show="!loading && isAdmin">
+        <header class="ws-card-head">
+            <h2>Strefa niebezpieczna</h2>
+            <p class="muted">Operacje nieodwracalne.</p>
+        </header>
+        <div class="ws-card-body">
+            <button class="btn-danger" @click="deleteOpen = true">Usuń ten workspace</button>
+        </div>
+    </section>
+
+    <!-- Delete workspace modal (typed-name confirm) -->
+    <div x-show="deleteOpen" x-cloak class="modal-backdrop"
+         @click.self="deleteOpen = false" @keydown.escape.window="deleteOpen = false">
+        <div class="modal" role="dialog" style="max-width: 540px;">
+            <header class="note-head">
+                <h2>Usuń workspace</h2>
+                <button class="close-btn" @click="deleteOpen = false" aria-label="Zamknij">×</button>
+            </header>
+            <div style="padding: 1rem;">
+                <p>Tej operacji nie da się cofnąć. Zostanie usunięta cała baza, wszystkie GML-e i warstwy GPKG.</p>
+                <p style="margin-top:0.75rem;">Aby potwierdzić, wpisz dokładnie nazwę workspace:</p>
+                <p><code style="font-size:1rem;" x-text="info.name"></code></p>
+                <input type="text" x-model="deleteConfirmText" placeholder="Wpisz nazwę..."
+                       style="width:100%;padding:0.5rem;margin-top:0.5rem;border:1px solid #ccc;border-radius:4px;">
+            </div>
+            <footer class="note-foot">
+                <button class="btn-ghost" @click="deleteOpen = false">Anuluj</button>
+                <button class="btn-danger" @click="confirmDelete()"
+                        :disabled="deleteConfirmText !== info.name || deleting">
+                    <span x-show="!deleting">Usuń bezpowrotnie</span>
+                    <span x-show="deleting">Usuwanie...</span>
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <div x-show="loading" class="muted" style="text-align:center;padding:3rem;">Ładowanie...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/workspace_settings.js?v={{ static_version }}"></script>
+{% endblock %}
