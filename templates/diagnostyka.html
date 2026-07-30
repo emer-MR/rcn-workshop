@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnostyka połączenia — RCN Workshop</title>
+{# Strona CELOWO samowystarczalna: zero zewnętrznych plików (CSS/JS inline).
+   Ma się wyrenderować także wtedy, gdy firewall/antywirus/proxy blokuje
+   wszystko poza samą stroną. Odwołania do CDN-ów poniżej to TESTY łączności,
+   nie zależności — aplikacja od 0.2.0-beta.2 serwuje biblioteki lokalnie. #}
+<style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+           max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 3rem;
+           color: #1c1917; background: #fafaf9; line-height: 1.5; }
+    h1 { font-size: 1.35rem; margin: 0 0 0.25rem; color: #1f4e79; }
+    .sub { color: #64748b; font-size: 0.9rem; margin: 0 0 1.25rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff;
+            border: 1px solid #e7e5e4; border-radius: 8px; overflow: hidden; }
+    th, td { text-align: left; padding: 0.55rem 0.75rem; font-size: 0.9rem;
+             border-bottom: 1px solid #f5f5f4; vertical-align: top; }
+    th { background: #f5f5f4; font-size: 0.8rem; text-transform: uppercase;
+         letter-spacing: 0.04em; color: #57534e; }
+    tr:last-child td { border-bottom: none; }
+    .st { font-weight: 600; white-space: nowrap; }
+    .czekam { color: #a16207; }
+    .ok { color: #15803d; }
+    .blad { color: #b91c1c; }
+    .opis { color: #78716c; font-size: 0.8rem; }
+    .noscript, .uwaga { background: #fef2f2; border-left: 3px solid #dc2626;
+             padding: 0.6rem 0.75rem; border-radius: 0 4px 4px 0; margin: 1rem 0; }
+    .info { background: #eff6ff; border-left: 3px solid #1d4ed8;
+            padding: 0.6rem 0.75rem; border-radius: 0 4px 4px 0; margin: 1rem 0;
+            font-size: 0.85rem; }
+    button { background: #1f4e79; color: #fff; border: none; border-radius: 6px;
+             padding: 0.55rem 1.1rem; font-size: 0.9rem; cursor: pointer; }
+    button:hover { background: #18405f; }
+    textarea { width: 100%; min-height: 180px; margin-top: 0.75rem;
+               font-family: Consolas, monospace; font-size: 0.78rem;
+               border: 1px solid #d6d3d1; border-radius: 6px; padding: 0.6rem;
+               box-sizing: border-box; }
+</style>
+</head>
+<body>
+<h1>Diagnostyka połączenia — RCN Workshop</h1>
+<p class="sub">Ta strona sprawdza, czy Twój komputer (przeglądarka, firewall,
+antywirus) blokuje zasoby potrzebne aplikacji. Poczekaj, aż wszystkie testy
+się zakończą (ok. 10 sekund), a potem kliknij „Skopiuj wynik" i wklej go
+w odpowiedzi na maila.</p>
+
+<noscript><div class="noscript"><strong>JavaScript jest wyłączony</strong> —
+to samo w sobie jest wynikiem diagnozy: aplikacja nie może działać bez
+JavaScriptu. Napisz nam o tym w mailu.</div></noscript>
+
+<table id="wyniki">
+    <tr><th>Test</th><th>Wynik</th></tr>
+</table>
+
+<div class="info">Testy „CDN" dotyczą wersji 0.2.0-beta.1, która pobierała
+biblioteki z internetu. Nowsze wersje mają wszystko wbudowane — ale wynik
+tych testów pokazuje nam, co jest blokowane w Twojej sieci. Uwaga: blokada
+bywa nakładana per program — wynik z przeglądarki może się różnić od tego,
+co widzi aplikacja desktop.</div>
+
+{% if contact_email %}
+<p class="sub">Skopiowany raport wyślij na adres:
+<a href="{{ contact_mailto }}">{{ contact_email }}</a>.</p>
+{% endif %}
+<p><button type="button" id="kopiuj" disabled>⏳ Testy trwają…</button></p>
+<textarea id="raport" readonly
+    placeholder="Tu pojawi się raport do skopiowania…"></textarea>
+
+<script>
+(function () {
+    'use strict';
+    var LIMIT_MS = 8000;
+    var tabela = document.getElementById('wyniki');
+    var raport = document.getElementById('raport');
+    var kopiuj = document.getElementById('kopiuj');
+    var wyniki = [];
+    var wToku = 0;
+
+    function wiersz(nazwa, opis) {
+        var tr = document.createElement('tr');
+        var td1 = document.createElement('td');
+        td1.innerHTML = nazwa + '<div class="opis">' + opis + '</div>';
+        var td2 = document.createElement('td');
+        td2.className = 'st czekam';
+        td2.textContent = '⏳ sprawdzam…';
+        tr.appendChild(td1); tr.appendChild(td2);
+        tabela.appendChild(tr);
+        return td2;
+    }
+
+    function testuj(nazwa, opis, start) {
+        var pole = wiersz(nazwa, opis);
+        var gotowe = false;
+        wToku += 1;
+        function koniec(ok, szczegol) {
+            if (gotowe) { return; }
+            gotowe = true;
+            pole.className = 'st ' + (ok ? 'ok' : 'blad');
+            pole.textContent = (ok ? '✅ działa' : '❌ ' + szczegol);
+            wyniki.push((ok ? 'OK   ' : 'BLAD ') + nazwa +
+                        (ok ? '' : ' (' + szczegol + ')'));
+            wToku -= 1;
+            if (wToku === 0) { podsumuj(); }
+        }
+        setTimeout(function () { koniec(false, 'brak odpowiedzi po 8 s'); }, LIMIT_MS);
+        try { start(koniec); } catch (e) { koniec(false, 'wyjątek: ' + e); }
+    }
+
+    function testSkryptu(url) {
+        return function (koniec) {
+            var s = document.createElement('script');
+            s.src = url + (url.indexOf('?') < 0 ? '?' : '&') + 't=' + new Date().getTime();
+            s.onload = function () { koniec(true); };
+            s.onerror = function () { koniec(false, 'zablokowane'); };
+            document.head.appendChild(s);
+        };
+    }
+
+    function testObrazka(url) {
+        return function (koniec) {
+            var im = new Image();
+            im.onload = function () { koniec(true); };
+            im.onerror = function () { koniec(false, 'zablokowane'); };
+            im.src = url + '?t=' + new Date().getTime();
+        };
+    }
+
+    function testSieci(url) {
+        // fetch no-cors: resolve = serwer odpowiedział (opaque), reject = blokada.
+        // Dla plików, które nie są ani skryptem, ani obrazkiem (np. woff2).
+        return function (koniec) {
+            fetch(url + '?t=' + new Date().getTime(), { mode: 'no-cors' })
+                .then(function () { koniec(true); })
+                .catch(function () { koniec(false, 'zablokowane'); });
+        };
+    }
+
+    function testMagazynu(nazwa) {
+        return function (koniec) {
+            try {
+                var m = window[nazwa];
+                m.setItem('rcn-diag', '1');
+                var v = m.getItem('rcn-diag');
+                m.removeItem('rcn-diag');
+                koniec(v === '1', 'zapis nie działa');
+            } catch (e) {
+                koniec(false, 'niedostępny (' + e.name + ')');
+            }
+        };
+    }
+
+    function podsumuj() {
+        var linie = [
+            'RCN Workshop -- diagnostyka polaczenia',
+            'Data: ' + new Date().toString(),
+            'Przegladarka: ' + navigator.userAgent,
+            'navigator.onLine: ' + navigator.onLine,
+            '',
+        ].concat(wyniki);
+        raport.value = linie.join('\n');
+        kopiuj.disabled = false;
+        kopiuj.textContent = '📋 Skopiuj wynik';
+    }
+
+    kopiuj.onclick = function () {
+        raport.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        if (!ok && navigator.clipboard) {
+            navigator.clipboard.writeText(raport.value);
+            ok = true;
+        }
+        kopiuj.textContent = ok ? '✅ Skopiowano — wklej w mailu'
+                               : 'Zaznacz tekst poniżej i skopiuj ręcznie (Ctrl+C)';
+    };
+
+    // 1. Baseline: zasób z tego samego serwera -- musi działać, skoro strona doszła.
+    testuj('Zasób lokalny aplikacji', 'plik z tego serwera (static/vendor)',
+        testSkryptu('/static/vendor/alpine-3.14.3.min.js'));
+    // 2-4. CDN-y używane przez wersję 0.2.0-beta.1.
+    testuj('cdn.tailwindcss.com', 'style interfejsu (w tym zamykanie okien dialogowych)',
+        testSkryptu('https://cdn.tailwindcss.com/3.4.17'));
+    testuj('unpkg.com', 'biblioteki interaktywności i mapy',
+        testSkryptu('https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js'));
+    testuj('fonts.googleapis.com', 'czcionki (arkusz stylów)',
+        testSieci('https://fonts.googleapis.com/css2?family=Roboto'));
+    // 5. Kafelki mapy (potrzebne też w wersji z wbudowanymi bibliotekami).
+    testuj('tile.openstreetmap.org', 'kafelki mapy OpenStreetMap',
+        testObrazka('https://tile.openstreetmap.org/1/1/0.png'));
+    // 6-7. Pamięć przeglądarki (zapamiętywanie zgód i ustawień).
+    testuj('localStorage', 'trwała pamięć przeglądarki (zapamiętanie zgody na ostrzeżenie)',
+        testMagazynu('localStorage'));
+    testuj('sessionStorage', 'pamięć sesji przeglądarki',
+        testMagazynu('sessionStorage'));
+})();
+</script>
+</body>
+</html>

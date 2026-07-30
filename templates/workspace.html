@@ -85,6 +85,9 @@
                     {% if survey_url %}
                     <a href="/ankieta" class="wb-admin-item" role="menuitem" target="_blank" rel="noopener">💬 Podziel się opinią</a>
                     {% endif %}
+                    {% if contact_mailto %}
+                    <a href="{{ contact_mailto }}" class="wb-admin-item" role="menuitem">✉️ Zgłoś błąd</a>
+                    {% endif %}
                     <button class="wb-admin-item" @click="openUpload = true; open = false" role="menuitem" x-show="isAdmin">⬆ Upload GML</button>
                     <button class="wb-admin-item" @click="layersAdminOpen = true; loadPoiInfo(); open = false" role="menuitem" x-show="isAdmin">🗺 Warstwy GPKG i POI</button>
                     <button class="wb-admin-item" @click="wbOpenQualityThresholds(); open = false" role="menuitem" x-show="isAdmin">⚙ Progi jakości danych</button>
@@ -1079,9 +1082,8 @@
 
 </section>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="/static/vendor/leaflet/leaflet.js?v={{ static_version }}"></script>
+<script src="/static/vendor/leaflet-draw/leaflet.draw.js?v={{ static_version }}"></script>
+<script src="/static/vendor/markercluster/leaflet.markercluster.js?v={{ static_version }}"></script>
 <script src="/static/js/workspace.js?v={{ static_version }}"></script>
 {% endblock %}

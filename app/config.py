@@ -42,6 +42,11 @@ class Settings:
     # zasila redirect /pobierz i przycisk na splashu. Jak survey_url: adres
     # kampanii bety trzymany w env, nie w kodzie (repo idzie na public).
     download_url: str | None
+    # Opcjonalny adres e-mail do zgłaszania błędów (RCN_CONTACT_EMAIL) --
+    # linki "Zgłoś błąd" w nav/menu i wzmianka w modalu wersji testowej.
+    # Jak survey_url: adres w env, nie w kodzie (repo idzie na public,
+    # a operator instancji może chcieć własny kanał zgłoszeń).
+    contact_email: str | None
 
     @property
     def workspaces_dir(self) -> Path:
@@ -89,6 +94,7 @@ def load_settings() -> Settings:
         survey_url=os.environ.get("RCN_SURVEY_URL") or None,
         test_warning=os.environ.get("RCN_TEST_WARNING") == "1",
         download_url=os.environ.get("RCN_DOWNLOAD_URL") or None,
+        contact_email=os.environ.get("RCN_CONTACT_EMAIL") or None,
     )
 
 

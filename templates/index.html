@@ -18,6 +18,9 @@
         {% if survey_url %}
         <a href="/ankieta" target="_blank" rel="noopener">💬 Podziel się opinią</a>
         {% endif %}
+        {% if contact_mailto %}
+        <a href="{{ contact_mailto }}">✉️ Zgłoś błąd</a>
+        {% endif %}
     </nav>
     <div class="idx-topbar-spacer"></div>
     <!-- Badge użytkownika ukryty w trybie lokalnym (auth wyłączony -> username 'local'). -->

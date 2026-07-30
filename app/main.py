@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -46,6 +47,15 @@ templates.env.globals["test_warning"] = settings.test_warning
 templates.env.globals["app_version"] = __version__
 templates.env.globals["is_beta"] = IS_BETA
 templates.env.globals["download_url"] = settings.download_url
+# Kontakt do zgłaszania błędów (RCN_CONTACT_EMAIL). Gotowy mailto z tematem
+# niosącym numer wersji -- zgłoszenie zawsze mówi, na czym powstało.
+templates.env.globals["contact_email"] = settings.contact_email
+templates.env.globals["contact_mailto"] = (
+    "mailto:" + settings.contact_email
+    + "?subject=" + quote(f"RCN Workshop {__version__} -- zgłoszenie błędu")
+    if settings.contact_email
+    else None
+)
 
 app.include_router(workspaces_router)
 app.include_router(query_router)
@@ -94,6 +104,18 @@ def instrukcja(request: Request):
     """Publiczna instrukcja obsługi -- 9 slajdów krok-po-kroku z mockupami UI.
     Bez auth (przed-logowaniowy onboarding dla nowych użytkowników)."""
     return templates.TemplateResponse(request, "instrukcja.html", {})
+
+
+@app.get("/diagnostyka", response_class=HTMLResponse)
+def diagnostyka(request: Request):
+    """Publiczna strona diagnostyczna łączności (rcn.example.com/diagnostyka).
+
+    Dla użytkowników zgłaszających dziwne zachowanie aplikacji: testuje
+    w przeglądarce dostępność dawnych CDN-ów, kafelków OSM i localStorage,
+    po czym daje raport do skopiowania w mail. Samowystarczalna (inline
+    CSS/JS) -- musi się wyrenderować także przy agresywnym firewallu.
+    Bez auth: diagnozują się osoby, które nie mogą wejść dalej."""
+    return templates.TemplateResponse(request, "diagnostyka.html", {})
 
 
 @app.get("/ankieta")

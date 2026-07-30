@@ -4338,6 +4338,13 @@ tr.import-row.status-failed td     { background: #fecaca; }
 }
 .rcn-tw-btn:hover { background: #b91c1c; }
 .rcn-tw-btn:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+.rcn-tw-timer {
+    margin: 0;
+    align-self: flex-end;
+    font-size: 0.78rem;
+    color: var(--muted, #64748b);
+    font-feature-settings: "tnum";
+}
 
 /* --- Badge BETA (is_beta z app/version.py) --------------------------------- */
 .rcn-beta-badge {

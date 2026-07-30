@@ -112,6 +112,15 @@ p, h1, h2, h3, h4, h5, h6 {
     background: var(--color-neutral-400);
 }
 
+/* Atrybut [hidden] MUSI wygrywać z regułami display na klasach (np.
+   .modal-backdrop { display:flex }). Bez tej reguły jedynym jej źródłem
+   jest preflight Tailwinda z CDN — gdy CDN jest niedostępny (offline,
+   firewall, antywirus), wszystkie modale renderują się na stałe i nie
+   da się ich zamknąć. Reguła lokalna = zachowanie niezależne od sieci. */
+[hidden] {
+    display: none !important;
+}
+
 /* Reduced motion — szanujemy preferencje OS */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

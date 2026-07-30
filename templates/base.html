@@ -11,7 +11,12 @@
          + RCN_ANALYTICS_WEBSITE_ID -- np. self-hosted Umami, cookieless) -->
     <script defer src="{{ analytics_script_url }}" data-website-id="{{ analytics_website_id }}"></script>
     {% endif %}
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Wszystkie zależności frontendu serwujemy LOKALNIE z /static/vendor/
+         (bez CDN): aplikacja desktop musi działać offline, a firewalle
+         i antywirusy potrafią blokować zewnętrzne domeny -- wtedy ginęła
+         m.in. reguła [hidden] z preflightu Tailwinda i modale nie dawały
+         się zamknąć (zgłoszenie testera 2026-07-30). -->
+    <script src="/static/vendor/tailwind-play-3.4.17.min.js?v={{ static_version }}"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -31,24 +36,21 @@
             },
         }
     </script>
-    <!-- Geist Sans + Geist Mono (Vercel font) -- redesign v1 -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+    <!-- Geist Sans + Geist Mono (Vercel font) -- redesign v1; lokalne woff2 -->
+    <link rel="stylesheet" href="/static/vendor/fonts/geist.css?v={{ static_version }}">
+    <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css?v={{ static_version }}">
+    <link rel="stylesheet" href="/static/vendor/leaflet-draw/leaflet.draw.css?v={{ static_version }}">
+    <link rel="stylesheet" href="/static/vendor/markercluster/MarkerCluster.css?v={{ static_version }}">
+    <link rel="stylesheet" href="/static/vendor/markercluster/MarkerCluster.Default.css?v={{ static_version }}">
     <!-- Design tokens -- ŁADUJEMY PRZED app.css, żeby zmienne były dostępne -->
     <link rel="stylesheet" href="/static/css/tokens.css?v={{ static_version }}">
     <link rel="stylesheet" href="/static/css/reset.css?v={{ static_version }}">
     <link rel="stylesheet" href="/static/css/app.css?v={{ static_version }}">
     {% block extra_head %}{% endblock %}
-    <script src="https://unpkg.com/marked@14.1.2/marked.min.js"></script>
-    <script src="https://unpkg.com/dompurify@3.1.7/dist/purify.min.js"></script>
-    <script src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js" defer></script>
-    <!-- Chart.js lokalnie (offline / frozen .exe) -- wersja 4.4.4, pobrana z jsDelivr -->
+    <script src="/static/vendor/marked-14.1.2.min.js?v={{ static_version }}"></script>
+    <script src="/static/vendor/purify-3.1.7.min.js?v={{ static_version }}"></script>
+    <script src="/static/vendor/alpine-3.14.3.min.js?v={{ static_version }}" defer></script>
+    <!-- Chart.js -- wersja 4.4.4, pobrana z jsDelivr -->
     <script src="/static/vendor/chart.umd.min.js?v={{ static_version }}"></script>
 </head>
 <body class="flex flex-col h-screen bg-slate-50 text-slate-800 font-sans">
@@ -62,6 +64,10 @@
                 {% if survey_url %}
                 <a href="/ankieta" target="_blank" rel="noopener"
                    class="opacity-80 hover:opacity-100 transition-opacity">💬 Podziel się opinią</a>
+                {% endif %}
+                {% if contact_mailto %}
+                <a href="{{ contact_mailto }}"
+                   class="opacity-80 hover:opacity-100 transition-opacity">✉️ Zgłoś błąd</a>
                 {% endif %}
                 {% if source_url %}
                 <!-- AGPL §13: oferta kodu źródłowego dla użytkowników sieciowych -->
@@ -98,10 +104,17 @@
                 <p class="rcn-tw-note">Znalazłeś błąd albo masz pomysł na usprawnienie?
                    Napisz o tym w <a href="/ankieta" target="_blank" rel="noopener">krótkiej ankiecie</a>.</p>
                 {% endif %}
+                {% if contact_email %}
+                <p class="rcn-tw-note">Problemy z aplikacją zgłoś mailem:
+                   <a href="{{ contact_mailto }}">{{ contact_email }}</a>
+                   (temat uzupełni się o numer wersji).</p>
+                {% endif %}
             </div>
             <button type="button" id="rcn-test-warning-ok" class="rcn-tw-btn" autofocus>
                 Rozumiem, przechodzę dalej
             </button>
+            <p class="rcn-tw-timer">Okno zamknie się samo za
+               <span id="rcn-tw-count">20</span>&nbsp;s.</p>
         </div>
     </div>
     <script>
@@ -114,22 +127,48 @@
         var KLUCZ = 'rcn-test-warning-ack-{{ app_version }}';
         var box = document.getElementById('rcn-test-warning');
         var ok = document.getElementById('rcn-test-warning-ok');
+        var licznik = document.getElementById('rcn-tw-count');
         if (!box || !ok) return;
+        var timer = null;
+
+        // Zamknięcie ustawia hidden ORAZ inline display:none. Sam atrybut nie
+        // wystarcza, gdy zawiedzie reguła [hidden] w CSS -- wtedy
+        // .modal-backdrop { display:flex } trzyma modal widoczny na stałe
+        // (przypadek testera z zablokowanym CDN, zgłoszenie 2026-07-30).
+        function zamknij() {
+            try { localStorage.setItem(KLUCZ, '1'); } catch (e) { /* tryb prywatny */ }
+            if (timer) { clearInterval(timer); timer = null; }
+            box.hidden = true;
+            box.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
         var zapamietane;
         try { zapamietane = localStorage.getItem(KLUCZ); } catch (e) { zapamietane = null; }
-        if (zapamietane === '1') return;
+        if (zapamietane === '1') {
+            // Zgoda już wyrażona: dopnij inline display:none, żeby modal nie
+            // straszył, gdy reguła [hidden] nie działa (patrz komentarz wyżej).
+            box.style.display = 'none';
+            return;
+        }
 
         box.hidden = false;
         document.body.style.overflow = 'hidden';
-        ok.focus();
+        try { ok.focus(); } catch (e) { /* stary silnik */ }
 
-        ok.addEventListener('click', function () {
-            try { localStorage.setItem(KLUCZ, '1'); } catch (e) { /* tryb prywatny */ }
-            box.hidden = true;
-            document.body.style.overflow = '';
-        });
+        // Minutnik-bezpiecznik: po 20 s przechodzimy dalej automatycznie,
+        // żeby w nietypowym środowisku (klik nie działa) nie uwięzić
+        // użytkownika na ostrzeżeniu.
+        var zostalo = 20;
+        timer = setInterval(function () {
+            zostalo -= 1;
+            if (licznik) { licznik.textContent = String(zostalo); }
+            if (zostalo <= 0) { zamknij(); }
+        }, 1000);
+
+        ok.onclick = zamknij;
         // Celowo BRAK zamykania klawiszem Escape i kliknięciem w tło --
-        // potwierdzenie ma być świadomym kliknięciem.
+        // potwierdzenie ma być świadomym kliknięciem (albo pełne 20 s odczytu).
     })();
     </script>
     {% endif %}
