@@ -659,7 +659,16 @@ def list_custom_layers(
 
     discovered = discover_gpkg_layers(_workspace_dir(workspace_id))
     disc_slugs = {d["slug"] for d in discovered}
-    layers = [{"slug": d["slug"], "name": d["name"], "file": d["file"]} for d in discovered]
+    # size_bytes: warstwy z meta niosą go z uploadu, auto-wykryte trzeba doczytać
+    # z dysku -- bez tego UI pokazywało "0.0 MB" przy poprawnie wgranym pliku.
+    layers = []
+    for d in discovered:
+        try:
+            size = Path(d["path"]).stat().st_size
+        except OSError:
+            size = 0
+        layers.append({"slug": d["slug"], "name": d["name"], "file": d["file"],
+                       "size_bytes": size})
     layers += [m for m in meta_layers if isinstance(m, dict) and m.get("slug") not in disc_slugs]
     # has_poi: frontend dokłada warstwę POI (serwowaną z /api/layers/.../poi.geojson)
     # tylko gdy plik istnieje -- bez 404-owania na każdym workspace bez POI.

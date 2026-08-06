@@ -81,11 +81,36 @@ def layer_info(_: str = Depends(require_auth)) -> dict:
     return {"layers_dir": str(d), "entries": entries}
 
 
+def _axis_swap_cached(gpkg_path: Path, src_epsg: int, ref_bbox) -> bool:
+    """`rcn_core.geo.gpkg_axis_swap` z cache per (plik, mtime, epsg, odniesienie).
+
+    Detekcja czyta próbkę z dysku, a warstwy serwujemy przy każdym przesunięciu
+    mapy -- bez cache płacilibyśmy za to na każdym kafelku.
+    """
+    import os
+
+    from rcn_core.geo import gpkg_axis_swap
+    try:
+        mtime = os.stat(gpkg_path).st_mtime_ns
+    except OSError:
+        mtime = 0
+    key = (str(gpkg_path), mtime, src_epsg, ref_bbox)
+    if key not in _AXIS_SWAP_CACHE:
+        if len(_AXIS_SWAP_CACHE) > 64:
+            _AXIS_SWAP_CACHE.clear()
+        _AXIS_SWAP_CACHE[key] = gpkg_axis_swap(gpkg_path, src_epsg, ref_bbox)
+    return _AXIS_SWAP_CACHE[key]
+
+
+_AXIS_SWAP_CACHE: dict[tuple, bool] = {}
+
+
 def _read_gpkg_features_pyogrio(
     gpkg_path: Path,
     bbox_4326: tuple[float, float, float, float],
     limit: int,
     src_epsg_default: int = 2180,
+    ref_bbox: tuple[float, float, float, float] | None = None,
 ) -> tuple[list[dict], bool, int]:
     """Czyta GPKG, bbox-filtruje przez pyogrio (native CRS), reprojectuje
     geometry do 4326. Zwraca (features_native_shape, capped, src_epsg).
@@ -123,6 +148,12 @@ def _read_gpkg_features_pyogrio(
     from app.gpkg_discovery import detect_gpkg_epsg
     src_epsg = detect_gpkg_epsg(gpkg_path, src_epsg) or src_epsg
 
+    # Kolejność osi: część GPKG-ów EGIB trzyma (northing, easting) zamiast (x, y).
+    # Bez tego warstwa rysuje się kilkaset km obok danych workspace'u (a punkt
+    # wciąż wypada w Polsce, więc detect_gpkg_epsg tego nie widzi). Patrz
+    # rcn_core.geo.gpkg_axis_swap -- decyzja cache'owana per plik (mtime).
+    swap = _axis_swap_cached(gpkg_path, src_epsg, ref_bbox)
+
     # Reproject bbox 4326 -> native (żeby pyogrio mógł użyć GPKG spatial index)
     tr_to_src = _transformer(4326, src_epsg)
     min_lon, min_lat, max_lon, max_lat = bbox_4326
@@ -132,6 +163,10 @@ def _read_gpkg_features_pyogrio(
         min_x, max_x = max_x, min_x
     if min_y > max_y:
         min_y, max_y = max_y, min_y
+    if swap:
+        # Filtr bbox musi być w kolejności osi PLIKU, inaczej indeks przestrzenny
+        # GPKG nie zwróci nic (dokładnie to widzieliśmy: 0 features dla Poznania).
+        min_x, min_y, max_x, max_y = min_y, min_x, max_y, max_x
 
     # +1 dla cap detection (jeśli pyogrio zwróci limit+1 features, wiemy że było więcej)
     meta, fids, geometries, field_data = _pyogrio_read_raw(
@@ -160,6 +195,8 @@ def _read_gpkg_features_pyogrio(
             geom = shapely_wkb.loads(bytes(geom_wkb))
             if geom.is_empty:
                 continue
+            if swap:
+                geom = shapely_transform(lambda x, y, z=None: (y, x), geom)
             if tr_to_wgs is not None:
                 geom = shapely_transform(lambda x, y, z=None: tr_to_wgs.transform(x, y), geom)
             geom_dict = shapely_mapping(geom)
@@ -183,6 +220,44 @@ def _read_gpkg_features_pyogrio(
         feat_id = int(fids[i]) if fids is not None and i < len(fids) else i
         features.append({"feat_id": feat_id, "geometry": geom_dict, "properties": props})
     return features, capped, src_epsg
+
+
+def _workspace_data_bbox(workspace_id: str):
+    """Zasięg transakcji workspace'u (min_lon, min_lat, max_lon, max_lat) albo None.
+
+    Odniesienie dla wykrywania kolejności osi w GPKG -- warstwa EGIB ma pasować
+    do danych, które opisuje. Cache'owane per workspace (`_BBOX_CACHE`), bo to
+    zapytanie po indeksowanych centroidach przy każdym kafelku mapy byłoby
+    marnotrawstwem; klucz niesie mtime bazy, więc po imporcie liczy się od nowa.
+    """
+    db = _workspace_db(workspace_id)
+    try:
+        key = (str(db), db.stat().st_mtime_ns)
+    except OSError:
+        return None
+    if key in _BBOX_CACHE:
+        return _BBOX_CACHE[key]
+    bbox = None
+    try:
+        conn = open_workspace(db)
+        try:
+            row = conn.execute(
+                "SELECT MIN(centroid_lon), MIN(centroid_lat), MAX(centroid_lon), MAX(centroid_lat) "
+                "FROM tx_cache WHERE centroid_lon IS NOT NULL"
+            ).fetchone()
+        finally:
+            conn.close()
+        if row and row[0] is not None:
+            bbox = (row[0], row[1], row[2], row[3])
+    except Exception as exc:  # baza w trakcie importu / brak tx_cache
+        log.debug("bbox workspace %s niedostepny: %s", workspace_id, exc)
+    if len(_BBOX_CACHE) > 32:
+        _BBOX_CACHE.clear()
+    _BBOX_CACHE[key] = bbox
+    return bbox
+
+
+_BBOX_CACHE: dict[tuple, object] = {}
 
 
 @router.get("/workspaces/{workspace_id}/custom/{layer_slug}.geojson")
@@ -215,7 +290,9 @@ def custom_workspace_layer(
 
     bbox_t = _parse_bbox(bbox)
     try:
-        raw_features, capped, _src_epsg = _read_gpkg_features_pyogrio(gpkg_path, bbox_t, limit)
+        raw_features, capped, _src_epsg = _read_gpkg_features_pyogrio(
+            gpkg_path, bbox_t, limit, ref_bbox=_workspace_data_bbox(workspace_id)
+        )
     except Exception as exc:
         log.warning("Failed to read %s: %s", gpkg_path, exc)
         raise HTTPException(status_code=500, detail=f"Failed to read GPKG: {exc}")
