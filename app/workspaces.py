@@ -385,7 +385,36 @@ async def create_workspace_with_files(
             )
 
     workspace_id = _allocate_workspace(name, slug)
+    try:
+        pending_ingests = await _store_uploaded_files(
+            workspace_id, gml_files, gpkg_names, gpkg_files
+        )
+    except Exception:
+        # Upload przerwany (413, brak miejsca, zerwane połączenie) -- skasuj świeżo
+        # utworzony katalog. Bez tego na liście zostaje pusty workspace, a ponowna
+        # próba pod tą samą nazwą tworzy "-1", "-2"... (zgłoszenie 2026-08-06).
+        shutil.rmtree(_workspace_dir(workspace_id), ignore_errors=True)
+        raise
 
+    # Ingest dopiero gdy WSZYSTKIE pliki są na dysku -- inaczej rollback powyżej
+    # kasowałby bazę spod działającego już zadania w tle.
+    for spec in pending_ingests:
+        background.add_task(_run_ingest_in_background, **spec)
+
+    return _workspace_info(workspace_id)
+
+
+async def _store_uploaded_files(
+    workspace_id: str,
+    gml_files: list[UploadFile],
+    gpkg_names: list[str],
+    gpkg_files: list[UploadFile],
+) -> list[dict]:
+    """Zapisz GPKG-i i GML-e nowego workspace'a na dysk (+ rekordy importu).
+
+    Zwraca listę kwargs dla `_run_ingest_in_background` -- zadania w tle rejestruje
+    dopiero wołający, po udanym zapisie kompletu (patrz rollback w create_workspace_with_files).
+    """
     # 1. GPKG -- zapis do layers/ + rejestracja w meta.
     custom_layers: list[dict] = []
     if gpkg_files:
@@ -401,7 +430,7 @@ async def create_workspace_with_files(
             while dst.exists():
                 dst = layers_dir / f"{fname_stem}-{n}.gpkg"
                 n += 1
-            max_bytes = settings.max_upload_mb * 1024 * 1024
+            max_bytes = settings.max_upload_bytes  # None = bez limitu (desktop)
             total = 0
             with open(dst, "wb") as handle:
                 while True:
@@ -409,12 +438,13 @@ async def create_workspace_with_files(
                     if not chunk:
                         break
                     total += len(chunk)
-                    if total > max_bytes:
+                    if max_bytes is not None and total > max_bytes:
                         handle.close()
                         dst.unlink(missing_ok=True)
                         raise HTTPException(
                             status_code=413,
-                            detail=f"GPKG file exceeds {settings.max_upload_mb} MB limit: {lfile.filename}",
+                            detail=f"Plik GPKG przekracza limit {settings.max_upload_mb} MB: "
+                                   f"{lfile.filename} (limit zmienia RCN_MAX_UPLOAD_MB)",
                         )
                     handle.write(chunk)
             await lfile.close()
@@ -437,12 +467,13 @@ async def create_workspace_with_files(
     uploads_dir = _workspace_uploads(workspace_id)
     uploads_dir.mkdir(parents=True, exist_ok=True)
     db_path = _workspace_db(workspace_id)
+    pending_ingests: list[dict] = []
 
     for gml in gml_files:
         original = (gml.filename or "upload.gml").strip() or "upload.gml"
         stored = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}_{_safe_filename(original)}"
         stored_path = uploads_dir / stored
-        max_bytes = settings.max_upload_mb * 1024 * 1024
+        max_bytes = settings.max_upload_bytes  # None = bez limitu (desktop)
         total = 0
         with open(stored_path, "wb") as handle:
             while True:
@@ -450,12 +481,13 @@ async def create_workspace_with_files(
                 if not chunk:
                     break
                 total += len(chunk)
-                if total > max_bytes:
+                if max_bytes is not None and total > max_bytes:
                     handle.close()
                     stored_path.unlink(missing_ok=True)
                     raise HTTPException(
                         status_code=413,
-                        detail=f"GML file exceeds {settings.max_upload_mb} MB limit: {original}",
+                        detail=f"Plik GML przekracza limit {settings.max_upload_mb} MB: "
+                               f"{original} (limit zmienia RCN_MAX_UPLOAD_MB)",
                     )
                 handle.write(chunk)
         await gml.close()
@@ -467,18 +499,17 @@ async def create_workspace_with_files(
             file_size_bytes=total,
             tryb="snapshot",
         )
-        background.add_task(
-            _run_ingest_in_background,
-            db_path=db_path,
-            gml_path=stored_path,
-            original_filename=original,
-            stored_filename=stored,
-            tryb="snapshot",
-            import_id=import_id,
-            file_size=total,
-        )
+        pending_ingests.append({
+            "db_path": db_path,
+            "gml_path": stored_path,
+            "original_filename": original,
+            "stored_filename": stored,
+            "tryb": "snapshot",
+            "import_id": import_id,
+            "file_size": total,
+        })
 
-    return _workspace_info(workspace_id)
+    return pending_ingests
 
 
 @router.post("/import", response_model=WorkspaceInfo, status_code=status.HTTP_201_CREATED)
@@ -511,7 +542,7 @@ async def import_workspace(
 
     try:
         # 1. Zapis paczki do temp (limit rozmiaru).
-        max_bytes = settings.max_upload_mb * 1024 * 1024
+        max_bytes = settings.max_upload_bytes  # None = bez limitu (desktop)
         total = 0
         with open(tmp_zip, "wb") as handle:
             while True:
@@ -519,10 +550,11 @@ async def import_workspace(
                 if not chunk:
                     break
                 total += len(chunk)
-                if total > max_bytes:
+                if max_bytes is not None and total > max_bytes:
                     raise HTTPException(
                         status_code=413,
-                        detail=f"Paczka przekracza limit {settings.max_upload_mb} MB",
+                        detail=f"Paczka przekracza limit {settings.max_upload_mb} MB "
+                               f"(limit zmienia RCN_MAX_UPLOAD_MB)",
                     )
                 handle.write(chunk)
         await file.close()
@@ -790,7 +822,7 @@ async def add_custom_layer(
     # na workspace -- ponowny upload nadpisuje. Auto-wykrywanie (app.gpkg_discovery)
     # zrobi resztę -- żadnego wpisu w workspace_meta.
     tmp = wdir / ".upload.tmp.gpkg"
-    max_bytes = settings.max_upload_mb * 1024 * 1024
+    max_bytes = settings.max_upload_bytes  # None = bez limitu (desktop)
     total = 0
     try:
         with open(tmp, "wb") as handle:
@@ -799,12 +831,13 @@ async def add_custom_layer(
                 if not chunk:
                     break
                 total += len(chunk)
-                if total > max_bytes:
+                if max_bytes is not None and total > max_bytes:
                     handle.close()
                     tmp.unlink(missing_ok=True)
                     raise HTTPException(
                         status_code=413,
-                        detail=f"GPKG file exceeds {settings.max_upload_mb} MB limit",
+                        detail=f"Plik GPKG przekracza limit {settings.max_upload_mb} MB "
+                               f"(limit zmienia RCN_MAX_UPLOAD_MB)",
                     )
                 handle.write(chunk)
         await file.close()
@@ -1220,7 +1253,7 @@ async def upload_gml(
     stored_name = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}_{_safe_filename(original_name)}"
     stored_path = uploads_dir / stored_name
 
-    max_bytes = settings.max_upload_mb * 1024 * 1024
+    max_bytes = settings.max_upload_bytes  # None = bez limitu (desktop)
     total = 0
     with open(stored_path, "wb") as handle:
         while True:
@@ -1228,12 +1261,13 @@ async def upload_gml(
             if not chunk:
                 break
             total += len(chunk)
-            if total > max_bytes:
+            if max_bytes is not None and total > max_bytes:
                 handle.close()
                 stored_path.unlink(missing_ok=True)
                 raise HTTPException(
                     status_code=413,
-                    detail=f"File exceeds {settings.max_upload_mb} MB limit",
+                    detail=f"Plik przekracza limit {settings.max_upload_mb} MB "
+                           f"(limit zmienia RCN_MAX_UPLOAD_MB)",
                 )
             handle.write(chunk)
     await file.close()

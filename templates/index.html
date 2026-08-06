@@ -626,7 +626,16 @@ function indexView() {
                         if (xhr.status >= 200 && xhr.status < 300) {
                             resolve(JSON.parse(xhr.responseText));
                         } else {
-                            reject(new Error(`HTTP ${xhr.status}: ${xhr.responseText}`));
+                            // Pokaż `detail` z API (czytelny polski komunikat, np. o limicie
+                            // uploadu), a surowy JSON tylko gdy odpowiedź go nie zawiera.
+                            let msg = `HTTP ${xhr.status}`;
+                            try {
+                                const d = JSON.parse(xhr.responseText).detail;
+                                if (d) msg = d;
+                            } catch (_) {
+                                if (xhr.responseText) msg = `${msg}: ${xhr.responseText}`;
+                            }
+                            reject(new Error(msg));
                         }
                     };
                     xhr.onerror = () => reject(new Error('Network error'));

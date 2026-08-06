@@ -18,6 +18,13 @@ class Settings:
     # NIGDY nie włączać na instancji sieciowej/VPS.
     auth_disabled: bool
     data_dir: Path
+    # Limit rozmiaru uploadu (GML/GPKG/paczka .zip) w MB; **0 = bez limitu**.
+    # Domyślnie 512 MB na instancji sieciowej -- serwer jest współdzielony, a jego
+    # dysk trzeba chronić przed przypadkowym uploadem gigabajtowego pliku.
+    # W trybie desktop na loopbacku (auth_disabled) domyślnie **bez limitu**:
+    # użytkownik wgrywa własne pliki na własny dysk, a GML metropolii potrafi
+    # przekroczyć 0,5 GB (Poznań ~610 MB -- zgłoszenie testera 2026-08-06).
+    # Override w obie strony: RCN_MAX_UPLOAD_MB.
     max_upload_mb: int
     log_level: str
     # Opcjonalna analityka (np. self-hosted Umami). Snippet w base.html renderuje
@@ -47,6 +54,16 @@ class Settings:
     # Jak survey_url: adres w env, nie w kodzie (repo idzie na public,
     # a operator instancji może chcieć własny kanał zgłoszeń).
     contact_email: str | None
+
+    @property
+    def max_upload_bytes(self) -> int | None:
+        """Limit uploadu w bajtach albo `None`, gdy wyłączony (`max_upload_mb <= 0`).
+
+        Miejsca sprawdzające rozmiar mają pytać o TO pole, nie mnożyć
+        `max_upload_mb` samodzielnie -- inaczej "0 = bez limitu" zamieniłoby się
+        w "limit 0 bajtów" i każdy upload dostałby 413.
+        """
+        return self.max_upload_mb * 1024 * 1024 if self.max_upload_mb > 0 else None
 
     @property
     def workspaces_dir(self) -> Path:
@@ -86,7 +103,10 @@ def load_settings() -> Settings:
         readonly_password=ro_pass,
         auth_disabled=auth_disabled,
         data_dir=data_dir,
-        max_upload_mb=int(os.environ.get("RCN_MAX_UPLOAD_MB", "512")),
+        # Desktop na loopbacku (auth_disabled) -> bez limitu; sieć -> 512 MB.
+        # Detekcja środowiska, nie osobna gałąź kodu (patrz Settings.max_upload_mb).
+        max_upload_mb=int(os.environ.get("RCN_MAX_UPLOAD_MB")
+                          or ("0" if auth_disabled else "512")),
         log_level=os.environ.get("RCN_LOG_LEVEL", "info"),
         analytics_script_url=os.environ.get("RCN_ANALYTICS_SCRIPT_URL") or None,
         analytics_website_id=os.environ.get("RCN_ANALYTICS_WEBSITE_ID") or None,
