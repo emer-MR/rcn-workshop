@@ -47,10 +47,28 @@ def _workspace_z_transakcja(data_dir):
         (REPERTORIUM, NOTARIUSZ,
          '{"twórca dokumentu": "' + NOTARIUSZ + '", "oznaczenie dokumentu": "' + REPERTORIUM + '"}'),
     )
+    # ⚠️ Atrybuty obiektu niosą KOPIĘ danych transakcji -- tak wygląda realny
+    # GML (sprawdzone na produkcji). Fixture bez tego przepuszczał przeciek
+    # w `plots[].extra`, bo maskowana była tylko sama transakcja.
+    attrs_obiektu = ('{"id_RCN": "RCN-1", "twórca dokumentu": "' + NOTARIUSZ
+                     + '", "dokument": "' + REPERTORIUM + '"}')
     conn.execute(
         "INSERT INTO plots(id_rcn, source_import_id, identyfikator_dzialki, teryt_gminy, "
-        "obreb, obreb_numer, powierzchnia_m2) VALUES "
-        "('RCN-1', 1, '106102_9.0042.44/1', '106102_9', '0042', '0042', 1000)"
+        "obreb, obreb_numer, powierzchnia_m2, attributes_json) VALUES "
+        "('RCN-1', 1, '106102_9.0042.44/1', '106102_9', '0042', '0042', 1000, ?)",
+        (attrs_obiektu,),
+    )
+    conn.execute(
+        "INSERT INTO buildings(id_rcn, source_import_id, identyfikator_budynku, teryt_gminy, "
+        "obreb, obreb_numer, pow_uzytkowa, attributes_json) VALUES "
+        "('RCN-1', 1, '106102_9.0042.44/1_BUD', '106102_9', '0042', '0042', 120, ?)",
+        (attrs_obiektu,),
+    )
+    conn.execute(
+        "INSERT INTO locals(id_rcn, source_import_id, identyfikator_lokalu, teryt_gminy, "
+        "obreb, obreb_numer, pow_uzytkowa, attributes_json) VALUES "
+        "('RCN-1', 1, '106102_9.0042.44/1_BUD.3_LOK', '106102_9', '0042', '0042', 48, ?)",
+        (attrs_obiektu,),
     )
     refresh_tx_cache(conn, id_rcn_list=None)
     conn.commit()
@@ -92,6 +110,15 @@ def test_gosc_nie_dostaje_nazwiska_w_szczegolach(client):
     assert not tx.get("tworca_dokumentu"), "nazwisko poszło w kolumnie"
     # Kopia w surowych atrybutach GML to druga droga wycieku -- łatwa do przeoczenia.
     assert NOTARIUSZ not in str(tx.get("extra")), "nazwisko poszło w atrybutach"
+    # Cała odpowiedź, nie tylko transakcja: atrybuty działek, budynków i lokali
+    # niosą kopię danych transakcji (tak wygląda realny GML).
+    przecieki = [
+        f"{grupa}[{i}]"
+        for grupa in ("plots", "buildings", "locals")
+        for i, obiekt in enumerate(dane[grupa])
+        if NOTARIUSZ in str(obiekt)
+    ]
+    assert not przecieki, f"nazwisko poszło w: {przecieki}"
     assert NOTARIUSZ not in str(dane), "nazwisko gdziekolwiek w odpowiedzi"
     # Repertorium ma zostać -- identyfikuje akt, nie osobę.
     assert tx["dokument"] == REPERTORIUM

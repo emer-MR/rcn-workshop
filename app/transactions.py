@@ -100,11 +100,18 @@ def transaction_details(
     finally:
         conn.close()
 
-    # Nazwisko notariusza tylko dla admina -- czyścimy i kolumnę, i jej kopię
-    # w surowych atrybutach GML. Numer repertorium (`dokument`) zostaje.
+    # Nazwisko notariusza tylko dla admina -- czyścimy kolumnę ORAZ atrybuty.
+    # ⚠️ Atrybuty KAŻDEGO obiektu (działki, budynku, lokalu) niosą pełną kopię
+    # danych transakcji, więc „twórca dokumentu" siedzi tam tyle razy, ile jest
+    # obiektów. Maskowanie samej transakcji zostawiało przeciek w `plots[].extra`
+    # -- wyszło przy kontroli na żywych danych produkcji (2026-09-14).
+    # Numer repertorium (`dokument`) zostaje.
     if ukrywac_notariusza(ctx):
         tx_dict = bez_notariusza(tx_dict)
         tx_dict["extra"] = bez_notariusza(tx_dict.get("extra") or {})
+        for obiekty in (plots, buildings, locals_):
+            for obiekt in obiekty:
+                obiekt["extra"] = bez_notariusza(obiekt.get("extra") or {})
 
     return {
         "transakcja": tx_dict,

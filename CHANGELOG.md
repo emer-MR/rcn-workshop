@@ -3,6 +3,17 @@
 Format: [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/),
 wersjonowanie [SemVer](https://semver.org/lang/pl/) z sufiksem przedpremierowym.
 
+## [0.2.0-beta.6] - 2026-09-14
+
+### Naprawione
+
+- **Nazwisko notariusza wychodziło jeszcze jedną drogą.** Atrybuty każdej
+  działki, budynku i lokalu niosą kopię danych transakcji, więc w wersji
+  beta.5 pole było wyczyszczone w samej transakcji, ale zostawało
+  w szczegółach obiektów. Wyszło przy kontroli na danych produkcyjnych.
+  Dotyczyło wyłącznie instancji sieciowej z publicznym odczytem lub kontem
+  readonly; instalacji lokalnej nie dotyczy, bo tam i tak widać komplet danych.
+
 ## [0.2.0-beta.5] - 2026-09-14
 
 ### Zmienione

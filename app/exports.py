@@ -196,7 +196,10 @@ def _export_xlsx_impl(workspace_id: str, filters: QueryFilters, export_comment: 
         id_rcns = _matching_id_rcn(conn, filters)
         rows = _reconstruct_rows(conn, id_rcns)
         if ukryj_notariusza:
-            rows["summary"] = bez_notariusza_w_wierszach(rows["summary"])
+            # Wszystkie cztery listy: atrybuty obiektów niosą kopię danych
+            # transakcji, więc nazwisko jest w każdej z nich.
+            for klucz in rows:
+                rows[klucz] = bez_notariusza_w_wierszach(rows[klucz])
     finally:
         conn.close()
 
