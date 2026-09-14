@@ -3,6 +3,25 @@
 Format: [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/),
 wersjonowanie [SemVer](https://semver.org/lang/pl/) z sufiksem przedpremierowym.
 
+## [0.2.0-beta.7] - 2026-09-14
+
+### Dodane
+
+- **Oznaczenia obrębów („B-42") działają od razu po instalacji.** Aplikacja ma
+  wbudowany słownik dla całej Polski - 377 powiatów, blisko 50 tysięcy obrębów -
+  więc nazwy pojawiają się same, także w bazie zaimportowanej z własnego pliku
+  GML. Wcześniej wymagało to osobnego pliku słownika obok bazy.
+- Bazy założone w starszych wersjach dostają oznaczenia przy pierwszym
+  uruchomieniu po aktualizacji; numer obrębu zostaje obok, więc wyszukiwanie
+  działa i po „B-42", i po „0042".
+
+### Zmienione
+
+- **Własne poprawki mają pierwszeństwo.** Oznaczenie zmienione w ustawieniach
+  workspace'u nie zostanie nadpisane ani przez słownik wbudowany, ani przez
+  kolejny zrzut EGIB. Lista w panelu pokazuje, które nazwy pochodzą
+  z wbudowanego słownika, a które wpisano ręcznie.
+
 ## [0.2.0-beta.6] - 2026-09-14
 
 ### Naprawione

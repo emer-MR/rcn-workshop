@@ -1,7 +1,7 @@
 [project]
 name = "rcn-workshop"
 # Synchronizować z app/version.py (PEP 440: "0.2.0b1" == "0.2.0-beta.1").
-version = "0.2.0b6"
+version = "0.2.0b7"
 description = "Self-hosted web tool for merging, filtering and exporting RCN GML files"
 readme = "README.md"
 license = {text = "AGPL-3.0-or-later"}

@@ -302,7 +302,13 @@ def apply_schema(conn) -> None:
 #      lokalu niesie obręb w drugim segmencie dokładnie tak samo jak
 #      identyfikator działki, więc filtr po obrębie ma od tej wersji komplet
 #      obiektów -- także transakcje mające WYŁĄCZNIE lokal.
-CURRENT_SCHEMA_VERSION = 11
+# 12 = oznaczenia obrębów z wbudowanego słownika krajowego (2026-09-14).
+#      GML RCN nie zawiera oznaczeń urzędowych („B-42") -- są tylko w EGIB,
+#      którego konsument nie ma. Aplikacja niesie więc słownik dla całej Polski
+#      (`rcn_core/resources/obreby-polska.csv.gz`) i przy migracji uzupełnia
+#      nim bazy, które mają w kolumnie `obreb` sam numer. Wpisy z własnym
+#      oznaczeniem (poprawki operatora, dane z EGIB) NIE są ruszane.
+CURRENT_SCHEMA_VERSION = 12
 
 
 def _migrate_v8(conn) -> None:
@@ -404,6 +410,63 @@ def _backfill_obreb_numer(conn) -> None:
         )
         WHERE obreb IS NULL
     """)
+
+
+def _backfill_oznaczenia_wbudowane(conn) -> int:
+    """Uzupełnij `obreb` oznaczeniami z wbudowanego słownika (migracja v12).
+
+    Rusza WYŁĄCZNIE wiersze, w których `obreb` to wciąż sam numer -- czyli te,
+    którym nikt nie nadał jeszcze oznaczenia. Poprawki operatora z panelu
+    i dane wprowadzone z warstw EGIB zostają nietknięte.
+
+    SQL przez tabelę tymczasową, nie pętla w Pythonie: to biegnie u użytkownika
+    przy pierwszym uruchomieniu po aktualizacji, a `zastosuj_do_bazy` (pętla)
+    szła na produkcji ~15 tys. wierszy/s, czyli minuty przy dużym mieście.
+    """
+    from rcn_core.slownik_obrebow import wczytaj_krajowy
+
+    slownik = wczytaj_krajowy()
+    if not slownik:
+        return 0
+
+    conn.execute("CREATE TEMP TABLE IF NOT EXISTS _slownik_obrebow ("
+                 "teryt TEXT NOT NULL, numer TEXT NOT NULL, oznaczenie TEXT NOT NULL, "
+                 "PRIMARY KEY (teryt, numer))")
+    conn.execute("DELETE FROM _slownik_obrebow")
+    conn.executemany(
+        "INSERT OR REPLACE INTO _slownik_obrebow(teryt, numer, oznaczenie) VALUES (?,?,?)",
+        [(w.teryt_gminy, w.numer_obrebu, w.oznaczenie) for w in slownik.values()],
+    )
+
+    zmienione = 0
+    for tabela in ("plots", "buildings", "locals"):
+        cur = conn.execute(f"""
+            UPDATE {tabela} SET obreb = (
+                SELECT s.oznaczenie FROM _slownik_obrebow s
+                 WHERE s.teryt = {tabela}.teryt_gminy AND s.numer = {tabela}.obreb_numer
+            )
+            WHERE obreb IS NOT NULL AND obreb_numer IS NOT NULL
+              AND obreb = obreb_numer
+              AND EXISTS (SELECT 1 FROM _slownik_obrebow s
+                           WHERE s.teryt = {tabela}.teryt_gminy AND s.numer = {tabela}.obreb_numer)
+        """)
+        zmienione += cur.rowcount or 0
+
+    if zmienione:
+        # Cache transakcji musi pójść za zmianą -- tak samo jak przy stosowaniu
+        # słownika z panelu. Lokale ostatnie: uzupełniają, nie przejmują.
+        conn.execute("""
+            UPDATE tx_cache SET obreb = COALESCE(
+                (SELECT MIN(p.obreb) FROM plots p
+                  WHERE p.id_rcn = tx_cache.id_rcn AND p.obreb IS NOT NULL),
+                (SELECT MIN(b.obreb) FROM buildings b
+                  WHERE b.id_rcn = tx_cache.id_rcn AND b.obreb IS NOT NULL),
+                (SELECT MIN(l.obreb) FROM locals l
+                  WHERE l.id_rcn = tx_cache.id_rcn AND l.obreb IS NOT NULL),
+                obreb)
+        """)
+    conn.execute("DROP TABLE IF EXISTS _slownik_obrebow")
+    return zmienione
 
 
 def refresh_tx_cache(conn, id_rcn_list: list[str] | None = None) -> None:
@@ -669,6 +732,7 @@ def _migrate(conn) -> None:
     if version >= 3:
         _migrate_v8(conn)
         _backfill_obreb_numer(conn)
+        _backfill_oznaczenia_wbudowane(conn)
         _set_schema_version(conn, CURRENT_SCHEMA_VERSION)
         return
 

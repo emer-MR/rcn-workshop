@@ -213,7 +213,11 @@ def test_api_lista_obrebow_pokazuje_stan(client, auth, tmp_data_dir):
     wid, _ = _workspace_z_danymi(client, auth, tmp_data_dir)
     d = client.get(f"/api/workspaces/{wid}/obreby", auth=auth).json()
     assert d["obrebow_w_bazie"] == 2
-    assert d["pokrytych"] == 0 and d["plik"] is None
+    # Bez własnego pliku pokrycie daje słownik WBUDOWANY w aplikację (v12):
+    # oba obręby to Łódź, więc oznaczenia są znane od razu.
+    assert d["plik"] is None
+    assert d["pokrytych"] == 2 and d["z_wbudowanego"] == 2
+    assert all(o["zrodlo"] == "wbudowany" for o in d["obreby"])
     assert {o["numer_obrebu"] for o in d["obreby"]} == {"0042", "0024"}
 
 
@@ -267,7 +271,13 @@ def test_api_upload_csv(client, auth, tmp_data_dir):
     assert r.status_code == 200, r.text
     assert r.json()["wpisow"] == 1
     d = client.get(f"/api/workspaces/{wid}/obreby", auth=auth).json()
-    assert d["pokrytych"] == 1 and d["plik"].endswith(SUFIKS)
+    assert d["plik"].endswith(SUFIKS)
+    # Wgrany plik przykrywa słownik wbudowany dla swojego obrębu; drugi obręb
+    # nadal pokrywa wbudowany, stąd 2 pokryte przy 1 wpisie w pliku.
+    assert d["wpisow_w_slowniku"] == 1
+    assert d["pokrytych"] == 2
+    wgrany = next(o for o in d["obreby"] if o["numer_obrebu"] == "0042")
+    assert wgrany["zrodlo"] == "egib-20260806"
 
 
 def test_api_pusty_csv_odrzucony(client, auth, tmp_data_dir):

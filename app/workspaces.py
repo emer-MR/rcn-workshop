@@ -31,6 +31,7 @@ from rcn_core.slownik_obrebow import (
     ZRODLO_RECZNY,
     WpisObrebu,
     obreby_z_bazy,
+    wczytaj_krajowy,
     sciezka_slownika,
     wczytaj,
     zapisz,
@@ -1726,9 +1727,14 @@ def get_slownik_obrebow(workspace_id: str, _: str = Depends(require_auth)) -> di
     finally:
         conn.close()
 
+    # Kolejność źródeł: plik workspace'u (w tym poprawki operatora) przykrywa
+    # słownik wbudowany w aplikację. Bez tego drugiego panel pokazywałby puste
+    # pole przy obrębie, który w bazie ma już oznaczenie.
+    krajowy = wczytaj_krajowy()
     wiersze = []
     for teryt, numer, obecne in pary:
-        wpis = slownik.get(f"{teryt}.{numer}")
+        klucz = f"{teryt}.{numer}"
+        wpis = slownik.get(klucz) or krajowy.get(klucz)
         wiersze.append({
             "teryt_gminy": teryt,
             "numer_obrebu": numer,
@@ -1739,6 +1745,10 @@ def get_slownik_obrebow(workspace_id: str, _: str = Depends(require_auth)) -> di
         })
     return {
         "plik": plik.name if plik else None,
+        # Ile pozycji pokrywa wbudowany słownik krajowy -- UI mówi wtedy
+        # operatorowi, skąd wzięły się oznaczenia, których sam nie wgrywał.
+        "z_wbudowanego": sum(1 for w in wiersze
+                             if w["zrodlo"] == "wbudowany" and w["oznaczenie"]),
         "wpisow_w_slowniku": len(slownik),
         "obrebow_w_bazie": len(wiersze),
         "pokrytych": sum(1 for w in wiersze if w["oznaczenie"]),

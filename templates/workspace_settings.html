@@ -216,11 +216,20 @@
                 i jedzie razem z paczką workspace'u. Numer nie ginie - po zastosowaniu
                 wyszukiwanie działa i po oznaczeniu, i po numerze.
             </p>
+            <p class="muted">
+                Aplikacja ma <strong>wbudowany słownik dla całej Polski</strong> (stan zrzutu
+                EGIB z sierpnia 2026), więc oznaczenia pojawiają się same - także w bazach
+                zaimportowanych z własnego GML-a. Poniższa lista pozwala je poprawić:
+                <strong>wpis zmieniony ręcznie ma pierwszeństwo</strong> i nie zostanie
+                nadpisany ani przez słownik wbudowany, ani przez kolejny zrzut EGIB.
+            </p>
         </header>
         <div class="ws-card-body">
             <div class="ws-obreby-stat muted tiny" x-show="obreby.zaladowane">
                 Obrębów w bazie: <strong x-text="obreby.obrebow_w_bazie"></strong> ·
                 z oznaczeniem w słowniku: <strong x-text="obreby.pokrytych"></strong> ·
+                <span x-show="obreby.z_wbudowanego">w tym z wbudowanego:
+                    <strong x-text="obreby.z_wbudowanego"></strong> · </span>
                 już zastosowanych w bazie: <strong x-text="obreby.zastosowanych"></strong>
                 <template x-if="obreby.plik">
                     <span> · plik: <code x-text="obreby.plik"></code></span>

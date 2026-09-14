@@ -20,12 +20,23 @@ ewidencyjnymi (w Łodzi „0024" to cztery obręby), a nazwa między gminami
 from __future__ import annotations
 
 import csv
+import gzip
+import io
+import logging
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+log = logging.getLogger(__name__)
+
 SUFIKS = ".obreby.csv"
+# Słownik krajowy wbudowany w aplikację: 377 powiatów, ~49,6 tys. obrębów,
+# spakowany 419 KB (rozpakowany 2,7 MB). Dzięki niemu oznaczenia („B-42")
+# działają OD RAZU po instalacji, także u kogoś, kto importuje własny GML
+# i nie dostał od nikogo pliku słownika. Zrzut EGIB 2026-08-06.
+ZASOB_KRAJOWY = Path(__file__).with_name("resources") / "obreby-polska.csv.gz"
+ZRODLO_WBUDOWANY = "wbudowany"
 KOLUMNY = ("teryt_gminy", "numer_obrebu", "oznaczenie", "gmina", "zrodlo")
 ZRODLO_RECZNY = "reczny"
 
@@ -85,6 +96,46 @@ def wczytaj(sciezka: Path) -> dict[str, WpisObrebu]:
             )
             wynik[wpis.klucz] = wpis
     return wynik
+
+
+_KRAJOWY_CACHE: dict[str, WpisObrebu] | None = None
+
+
+def wczytaj_krajowy() -> dict[str, WpisObrebu]:
+    """Wbudowany słownik krajowy (cache na proces).
+
+    Brak pliku albo uszkodzony zasób NIE jest błędem krytycznym: aplikacja ma
+    wtedy działać jak dotąd, pokazując numery obrębów zamiast oznaczeń.
+    """
+    global _KRAJOWY_CACHE
+    if _KRAJOWY_CACHE is not None:
+        return _KRAJOWY_CACHE
+    wynik: dict[str, WpisObrebu] = {}
+    try:
+        with gzip.open(ZASOB_KRAJOWY, "rb") as f:
+            tekst = io.TextIOWrapper(f, encoding="utf-8-sig", newline="")
+            for row in csv.DictReader(tekst, delimiter=";"):
+                teryt = (row.get("teryt_gminy") or "").strip()
+                numer = (row.get("numer_obrebu") or "").strip()
+                oznaczenie = (row.get("oznaczenie") or "").strip()
+                if not teryt or not numer or not oznaczenie:
+                    continue
+                wpis = WpisObrebu(teryt, numer, oznaczenie,
+                                  (row.get("gmina") or "").strip(), ZRODLO_WBUDOWANY)
+                wynik[wpis.klucz] = wpis
+    except (OSError, csv.Error, UnicodeDecodeError) as exc:
+        log.warning("Nie udało się wczytać wbudowanego słownika obrębów: %s", exc)
+        wynik = {}
+    _KRAJOWY_CACHE = wynik
+    return wynik
+
+
+def oznaczenie_wbudowane(teryt_gminy: str | None, numer: str | None) -> str | None:
+    """Oznaczenie z wbudowanego słownika albo None."""
+    if not teryt_gminy or not numer:
+        return None
+    wpis = wczytaj_krajowy().get(f"{teryt_gminy}.{numer}")
+    return wpis.oznaczenie if wpis else None
 
 
 def zapisz(sciezka: Path, wpisy: Iterable[WpisObrebu]) -> int:

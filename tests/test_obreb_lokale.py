@@ -79,7 +79,9 @@ def test_ingest_wypelnia_obreb_lokalu(tmp_path):
     wiersz = _local_tuple({"identyfikator lokalu": IDENT_LOKALU}, "RCN-1", 1, 2180)
     # (id_rcn, import_id, identyfikator, teryt, obreb, obreb_numer, ...)
     assert wiersz[3] == "106106_9"
-    assert wiersz[4] == "0012"        # bez słownika oznaczeń: sam numer
+    # Od schema v12 oznaczenie przychodzi z wbudowanego słownika krajowego
+    # (106106_9.0012 = Widzew W-12); numer zostaje obok, w `obreb_numer`.
+    assert wiersz[4] == "W-12"
     assert wiersz[5] == "0012"
 
 
@@ -159,10 +161,12 @@ def test_migracja_v10_backfilluje_lokale(tmp_path):
 
     apply_schema(conn)
 
+    # Migracja uzupełnia numer z identyfikatora, a oznaczenie ze słownika
+    # wbudowanego (v12) -- stąd „W-12" zamiast samego numeru.
     assert conn.execute(
         "SELECT teryt_gminy, obreb, obreb_numer FROM locals"
-    ).fetchone() == ("106106_9", "0012", "0012")
+    ).fetchone() == ("106106_9", "W-12", "0012")
     assert conn.execute(
         "SELECT obreb, obreb_numer FROM tx_cache WHERE id_rcn = 'RCN-LOK'"
-    ).fetchone() == ("0012", "0012")
+    ).fetchone() == ("W-12", "0012")
     conn.close()

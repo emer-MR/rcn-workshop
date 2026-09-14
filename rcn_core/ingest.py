@@ -41,6 +41,7 @@ from rcn_core.geo import centroid_4326, epsg_int, teryt_gminy_from_dzialka
 from rcn_core.obreby import name_for as obreb_name_for
 from rcn_core.parser import RcnGmlParser
 from rcn_core.schema import apply_schema, refresh_tx_cache
+from rcn_core.slownik_obrebow import oznaczenie_wbudowane
 
 
 ProgressCallback = Callable[[str, int, str], None]
@@ -689,7 +690,11 @@ def _plot_tuple(plot: dict, id_rcn: str, import_id: int, source_epsg: int) -> tu
     ident = plot.get("identyfikator działki")
     teryt_g = teryt_gminy_from_dzialka(ident)
     obreb_num = _extract_obreb(ident)
-    obreb_display = obreb_name_for(teryt_g, obreb_num) or obreb_num
+    # Kolejność źródeł oznaczenia: warstwy EGIB producenta (najświeższe),
+    # potem słownik wbudowany w aplikację, na końcu sam numer.
+    obreb_display = (obreb_name_for(teryt_g, obreb_num)
+                     or oznaczenie_wbudowane(teryt_g, obreb_num)
+                     or obreb_num)
     return (
         id_rcn,
         import_id,
@@ -715,7 +720,9 @@ def _building_tuple(building: dict, id_rcn: str, import_id: int, source_epsg: in
     ident_b = building.get("identyfikator budynku")
     teryt_b = teryt_gminy_from_dzialka(ident_b)
     obreb_num_b = _extract_obreb(ident_b)
-    obreb_display_b = obreb_name_for(teryt_b, obreb_num_b) or obreb_num_b
+    obreb_display_b = (obreb_name_for(teryt_b, obreb_num_b)
+                       or oznaczenie_wbudowane(teryt_b, obreb_num_b)
+                       or obreb_num_b)
     return (
         id_rcn,
         import_id,
@@ -745,7 +752,9 @@ def _local_tuple(local: dict, id_rcn: str, import_id: int, source_epsg: int) -> 
     ident_l = local.get("identyfikator lokalu")
     teryt_l = teryt_gminy_from_dzialka(ident_l)
     obreb_num_l = _extract_obreb(ident_l)
-    obreb_display_l = obreb_name_for(teryt_l, obreb_num_l) or obreb_num_l
+    obreb_display_l = (obreb_name_for(teryt_l, obreb_num_l)
+                       or oznaczenie_wbudowane(teryt_l, obreb_num_l)
+                       or obreb_num_l)
     return (
         id_rcn,
         import_id,
