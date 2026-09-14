@@ -39,7 +39,14 @@
     <!-- SLAJD 2: Tabela transakcji -->
     <section class="help-slide" x-show="slide === 2" x-cloak>
         <div class="help-screenshot">
+            {# Zrzut z realnymi transakcjami (adresy, ceny, nazwiska notariuszy):
+               w trybie publicznego odczytu gosc widzi tylko opis. #}
+            {% if pokaz_zrzuty_z_danymi %}
             <img src="/static/img/screenshots/2.png" alt="Tabela transakcji Warszawa">
+            {% else %}
+            <p class="muted help-screenshot-ukryty">Zrzut ekranu z tego widoku
+                zawiera dane transakcji i jest widoczny po zalogowaniu.</p>
+            {% endif %}
         </div>
         <div class="help-text">
             <div class="help-num">2</div>
@@ -60,7 +67,14 @@
     <!-- SLAJD 3: Rozwinięcie wiersza + szczegóły transakcji -->
     <section class="help-slide" x-show="slide === 3" x-cloak>
         <div class="help-screenshot">
+            {# Zrzut z realnymi transakcjami (adresy, ceny, nazwiska notariuszy):
+               w trybie publicznego odczytu gosc widzi tylko opis. #}
+            {% if pokaz_zrzuty_z_danymi %}
             <img src="/static/img/screenshots/3.png" alt="Rozwinięty wiersz transakcji ze szczegółami obiektów">
+            {% else %}
+            <p class="muted help-screenshot-ukryty">Zrzut ekranu z tego widoku
+                zawiera dane transakcji i jest widoczny po zalogowaniu.</p>
+            {% endif %}
         </div>
         <div class="help-text">
             <div class="help-num">3</div>
@@ -80,7 +94,14 @@
     <!-- SLAJD 4: Modal mapy + Sąsiedzi w X m -->
     <section class="help-slide" x-show="slide === 4" x-cloak>
         <div class="help-screenshot">
+            {# Zrzut z realnymi transakcjami (adresy, ceny, nazwiska notariuszy):
+               w trybie publicznego odczytu gosc widzi tylko opis. #}
+            {% if pokaz_zrzuty_z_danymi %}
             <img src="/static/img/screenshots/4.png" alt="Modal mapy z focused markerem i sąsiadami">
+            {% else %}
+            <p class="muted help-screenshot-ukryty">Zrzut ekranu z tego widoku
+                zawiera dane transakcji i jest widoczny po zalogowaniu.</p>
+            {% endif %}
         </div>
         <div class="help-text">
             <div class="help-num">4</div>
@@ -102,7 +123,14 @@
     <!-- SLAJD 5: Koszyk + Eksport -->
     <section class="help-slide" x-show="slide === 5" x-cloak>
         <div class="help-screenshot">
+            {# Zrzut z realnymi transakcjami (adresy, ceny, nazwiska notariuszy):
+               w trybie publicznego odczytu gosc widzi tylko opis. #}
+            {% if pokaz_zrzuty_z_danymi %}
             <img src="/static/img/screenshots/5.png" alt="Modal koszyka z eksportem">
+            {% else %}
+            <p class="muted help-screenshot-ukryty">Zrzut ekranu z tego widoku
+                zawiera dane transakcji i jest widoczny po zalogowaniu.</p>
+            {% endif %}
         </div>
         <div class="help-text">
             <div class="help-num">5</div>
@@ -122,7 +150,14 @@
     <!-- SLAJD 6: Filtry zaawansowane + sidebar -->
     <section class="help-slide" x-show="slide === 6" x-cloak>
         <div class="help-screenshot">
+            {# Zrzut z realnymi transakcjami (adresy, ceny, nazwiska notariuszy):
+               w trybie publicznego odczytu gosc widzi tylko opis. #}
+            {% if pokaz_zrzuty_z_danymi %}
             <img src="/static/img/screenshots/6.png" alt="Filtry sidebar + multi-zaznaczenie wierszy">
+            {% else %}
+            <p class="muted help-screenshot-ukryty">Zrzut ekranu z tego widoku
+                zawiera dane transakcji i jest widoczny po zalogowaniu.</p>
+            {% endif %}
         </div>
         <div class="help-text">
             <div class="help-num">6</div>

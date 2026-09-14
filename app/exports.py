@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app.auth import require_auth
+from app.prywatnosc import bez_notariusza_w_wierszach, ukrywac_notariusza
 from app.query import QueryFilters, _attribute_clauses
 from app.workspaces import _require_workspace, _workspace_db, _meta_get, assert_workspace_idle
 from app.xlsx_builder import ExportMeta, build_workshop_xlsx
@@ -131,7 +132,7 @@ def export_xlsx(
     data_do: Optional[str] = Query(None),
     miejscowosc: Optional[list[str]] = Query(None),
     teryt_gminy: Optional[list[str]] = Query(None),
-    _: str = Depends(require_auth),
+    ctx=Depends(require_auth),
     __: None = Depends(assert_workspace_idle),
 ):
     _require_workspace(workspace_id)
@@ -139,14 +140,15 @@ def export_xlsx(
         rodzaj_rynku, rodzaj_transakcji, cena_min, cena_max,
         data_od, data_do, miejscowosc, teryt_gminy,
     )
-    return _export_xlsx_impl(workspace_id, filters)
+    return _export_xlsx_impl(workspace_id, filters,
+                             ukryj_notariusza=ukrywac_notariusza(ctx))
 
 
 @router.post("/{workspace_id}/export.xlsx")
 def export_xlsx_post(
     workspace_id: str,
     body: ExportRequest = Body(...),
-    _: str = Depends(require_auth),
+    ctx=Depends(require_auth),
     __: None = Depends(assert_workspace_idle),
 ):
     """POST variant accepting a full QueryFilters JSON (including `id_rcn_in`).
@@ -154,7 +156,8 @@ def export_xlsx_post(
     Used by the UI when exporting only ticked rows — the selection list can be
     hundreds or thousands of ids which would bloat a URL query string."""
     _require_workspace(workspace_id)
-    return _export_xlsx_impl(workspace_id, body.filters, body.export_comment or "")
+    return _export_xlsx_impl(workspace_id, body.filters, body.export_comment or "",
+                             ukryj_notariusza=ukrywac_notariusza(ctx))
 
 
 def _describe_filters(filters: QueryFilters) -> str:
@@ -185,12 +188,15 @@ def _describe_filters(filters: QueryFilters) -> str:
     return ", ".join(parts) if parts else ""
 
 
-def _export_xlsx_impl(workspace_id: str, filters: QueryFilters, export_comment: str = ""):
+def _export_xlsx_impl(workspace_id: str, filters: QueryFilters, export_comment: str = "",
+                      ukryj_notariusza: bool = False):
     conn = open_workspace(_workspace_db(workspace_id))
     try:
         workspace_name = _meta_get(conn, "name") or workspace_id
         id_rcns = _matching_id_rcn(conn, filters)
         rows = _reconstruct_rows(conn, id_rcns)
+        if ukryj_notariusza:
+            rows["summary"] = bez_notariusza_w_wierszach(rows["summary"])
     finally:
         conn.close()
 
@@ -227,7 +233,7 @@ def export_csv(
     data_do: Optional[str] = Query(None),
     miejscowosc: Optional[list[str]] = Query(None),
     teryt_gminy: Optional[list[str]] = Query(None),
-    _: str = Depends(require_auth),
+    ctx=Depends(require_auth),
     __: None = Depends(assert_workspace_idle),
 ):
     _require_workspace(workspace_id)
@@ -235,14 +241,15 @@ def export_csv(
         rodzaj_rynku, rodzaj_transakcji, cena_min, cena_max,
         data_od, data_do, miejscowosc, teryt_gminy,
     )
-    return _export_csv_impl(workspace_id, filters)
+    return _export_csv_impl(workspace_id, filters,
+                            ukryj_notariusza=ukrywac_notariusza(ctx))
 
 
 @router.post("/{workspace_id}/export.csv")
 def export_csv_post(
     workspace_id: str,
     body: ExportRequest = Body(...),
-    _: str = Depends(require_auth),
+    ctx=Depends(require_auth),
     __: None = Depends(assert_workspace_idle),
 ):
     """POST variant -- accepts full QueryFilters JSON (w tym `id_rcn_in` dla
@@ -250,10 +257,12 @@ def export_csv_post(
     CSV, zaprojektowanym jako input dla pipeline PDF batch download
     (patrz README sekcja 'Enrichment z portalu iRzeczoznawca')."""
     _require_workspace(workspace_id)
-    return _export_csv_impl(workspace_id, body.filters)
+    return _export_csv_impl(workspace_id, body.filters,
+                            ukryj_notariusza=ukrywac_notariusza(ctx))
 
 
-def _export_csv_impl(workspace_id: str, filters: QueryFilters):
+def _export_csv_impl(workspace_id: str, filters: QueryFilters,
+                     ukryj_notariusza: bool = False):
     """Zwraca CSV z wybranymi transakcjami. Minimalny zestaw pól do matchowania
     z bazą enrichment (id_rcn klucz) + człowieczo-czytelne kolumny identyfikujące.
     """
@@ -353,7 +362,7 @@ def _export_csv_impl(workspace_id: str, filters: QueryFilters):
             r.get("first_plot_ident") or "",
             r.get("plot_idents_concat") or "",
             r.get("sygnatura_dokumentu") or "",
-            r.get("tworca_dokumentu") or "",
+            "" if ukryj_notariusza else (r.get("tworca_dokumentu") or ""),
             _fmt_num(r.get("cena_transakcji_brutto")),
             _fmt_num(r.get("stawka_vat")),
             _fmt_num(r.get("area_m2")),

@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pyproj import Geod
 
 from app.auth import require_auth
+from app.prywatnosc import bez_notariusza, ukrywac_notariusza
 from app.workspaces import _require_workspace, _workspace_db, assert_workspace_idle
 from rcn_core.ingest import open_workspace
 
@@ -43,7 +44,7 @@ def _rows(conn: sqlite3.Connection, sql: str, params: tuple) -> list[dict]:
 def transaction_details(
     workspace_id: str,
     id_rcn: str,
-    _: str = Depends(require_auth),
+    ctx=Depends(require_auth),
     __: None = Depends(assert_workspace_idle),
 ) -> dict:
     _require_workspace(workspace_id)
@@ -98,6 +99,12 @@ def transaction_details(
         )
     finally:
         conn.close()
+
+    # Nazwisko notariusza tylko dla admina -- czyścimy i kolumnę, i jej kopię
+    # w surowych atrybutach GML. Numer repertorium (`dokument`) zostaje.
+    if ukrywac_notariusza(ctx):
+        tx_dict = bez_notariusza(tx_dict)
+        tx_dict["extra"] = bez_notariusza(tx_dict.get("extra") or {})
 
     return {
         "transakcja": tx_dict,

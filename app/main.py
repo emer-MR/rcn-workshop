@@ -153,10 +153,18 @@ def pobierz():
 
 
 @app.get("/help", response_class=HTMLResponse)
-def help_page(request: Request, _: str = Depends(require_auth)):
+def help_page(request: Request, ctx=Depends(require_auth)):
     """Pełna instrukcja obsługi z prawdziwymi screenshotami aplikacji.
-    Wymaga auth (screenshoty zawierają dane RCN nieujawniane publicznie)."""
-    return templates.TemplateResponse(request, "help.html", {})
+
+    ⚠️ Zrzuty 2-6 pokazują realne transakcje: adresy, ceny i nazwiska
+    notariuszy. `require_auth` NIE wystarcza, bo w trybie publicznego odczytu
+    (`RCN_PUBLIC_READONLY`) przepuszcza gościa -- dlatego o ich renderowaniu
+    decyduje rola, a nie sam fakt uwierzytelnienia. Gość dostaje pełny tekst
+    instrukcji i zrzut 1 (same agregaty, bez danych osobowych)."""
+    return templates.TemplateResponse(
+        request, "help.html",
+        {"pokaz_zrzuty_z_danymi": getattr(ctx, "role", None) == "admin"},
+    )
 
 
 @app.get("/login")

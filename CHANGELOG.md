@@ -3,6 +3,20 @@
 Format: [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/),
 wersjonowanie [SemVer](https://semver.org/lang/pl/) z sufiksem przedpremierowym.
 
+## [0.2.0-beta.5] - 2026-09-14
+
+### Zmienione
+
+- **Nazwisko notariusza nie wychodzi do użytkownika sieciowego.** Przy
+  włączonym publicznym odczycie albo koncie readonly pole „Notariusz" jest
+  puste - w tabeli, w eksporcie CSV i w arkuszu XLSX. Numer repertorium
+  zostaje, bo identyfikuje akt, a osoby nie wskazuje. Zrzuty ekranu
+  w instrukcji, które pokazują realne transakcje, wymagają zalogowania.
+
+  **Instalacja lokalna działa bez zmian** - na własnym komputerze widzisz
+  komplet danych, bo nie ma tam przed kim ich chronić. Ograniczenie dotyczy
+  wyłącznie instancji wystawionej w sieci.
+
 ## [0.2.0-beta.4] - 2026-09-14
 
 ### Dodane
