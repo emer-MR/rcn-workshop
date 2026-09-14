@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block topnav %}
-<header class="idx-topbar" x-data="{ me: { username: '', role: 'readonly' }, get isAdmin() { return this.me.role === 'admin'; } }" x-init="fetch('/api/me').then(r => r.ok && r.json()).then(d => d && (me = d))">
+<header class="idx-topbar" x-data="{ me: { username: '', role: 'readonly', anonymous: false }, get isAdmin() { return this.me.role === 'admin'; } }" x-init="fetch('/api/me').then(r => r.ok && r.json()).then(d => d && (me = d))">
     <div class="idx-brand">
         <span class="idx-brand-logo">RCN</span>
         <span class="idx-brand-tag">Workshop · dla rzeczoznawców</span>
@@ -25,8 +25,10 @@
     <div class="idx-topbar-spacer"></div>
     <!-- Badge użytkownika ukryty w trybie lokalnym (auth wyłączony -> username 'local'). -->
     <div class="idx-user-pill" x-show="me.username && me.username !== 'local'">
-        <span>Zalogowany: <strong x-text="me.username"></strong></span>
+        <span x-show="!me.anonymous">Zalogowany: <strong x-text="me.username"></strong></span>
+        <span x-show="me.anonymous">Przeglądasz jako <strong>gość</strong></span>
         <span class="role" :class="{ readonly: !isAdmin }" x-text="me.role"></span>
+        <a href="/login" class="idx-user-login" x-show="me.anonymous">Zaloguj się</a>
     </div>
 </header>
 {% endblock %}
@@ -238,8 +240,9 @@
             </div>
 
             <fieldset class="create-ws-section">
-                <legend>Pliki GML <span class="required">*</span> <small class="muted">(min. 1)</small></legend>
-                <input type="file" multiple accept=".gml,.xml" @change="setGmlFiles($event)">
+                <legend>Pliki GML <span class="required">*</span>
+                    <small class="muted">(min. 1; może być archiwum .zip)</small></legend>
+                <input type="file" multiple accept=".gml,.xml,.zip" @change="setGmlFiles($event)">
                 <ul x-show="gmlFiles.length > 0" class="create-ws-filelist">
                     <template x-for="(f, i) in gmlFiles" :key="i">
                         <li>
@@ -333,7 +336,7 @@
 function indexView() {
     return {
         items: [],
-        me: { username: '', role: 'readonly' },
+        me: { username: '', role: 'readonly', anonymous: false },
         get isAdmin() { return this.me.role === 'admin'; },
         loading: true,
 

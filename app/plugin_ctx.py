@@ -10,6 +10,7 @@ gdzie x/y to pre-rzutowane współrzędne EPSG:2180 (metry). Otwierany read-only
 """
 from __future__ import annotations
 
+import json
 import logging
 import math
 import sqlite3
@@ -25,23 +26,28 @@ log = logging.getLogger(__name__)
 # WGS84 -> PUWG 1992 (EPSG:2180, metry) -- tworzony raz, thread-safe przy odczycie.
 _TO_2180 = Transformer.from_crs(4326, 2180, always_xy=True)
 
-# Współdzielony cache drzew POI: (ścieżka, mtime_ns) -> {kind: entry}.
-# Odczyty STRtree są thread-safe; zapis pod lockiem.
+# Współdzielony cache drzew: (ścieżka, mtime_ns[, rodzaj]) -> {kind: entry}.
+# Odczyty STRtree są thread-safe; zapis pod lockiem. Limit 16 = dwa sidecary
+# na workspace razy kilka ostatnio używanych workspace'ów.
 _TREE_CACHE: dict = {}
-_TREE_CACHE_MAX = 8
+_TREE_CACHE_MAX = 16
 _cache_lock = threading.Lock()
 
 
+
 class PluginCtx:
-    def __init__(self, poi_path: Path | None, params: dict | None = None) -> None:
+    def __init__(self, poi_path: Path | None, params: dict | None = None,
+                 **sidecary: Path | None) -> None:
         self._poi_path = poi_path
         # Parametry uruchomienia z body requestu (np. {"alpha": 0.1,
         # "data_wyceny": "2026-06-10"}) -- wtyczka czyta przez ctx.params.get().
         self.params: dict = dict(params or {})
         self._conn: sqlite3.Connection | None = None
+
         # Per kategoria: (STRtree, [(name, x, y), ...]) -- lazy, budowane przy
         # pierwszym zapytaniu o daną kategorię (koszt tylko za używane kategorie).
         self._trees: dict[str, tuple[STRtree, list[tuple]] | None] = {}
+
 
     def _connection(self) -> sqlite3.Connection | None:
         if self._conn is not None:
@@ -134,3 +140,4 @@ class PluginCtx:
             self._conn.close()
             self._conn = None
         self._trees.clear()
+

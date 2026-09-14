@@ -17,6 +17,12 @@ class Settings:
     # wtedy traktowane jak admin, bez okienka Basic Auth w WebView2.
     # NIGDY nie włączać na instancji sieciowej/VPS.
     auth_disabled: bool
+    # Publiczny odczyt (RCN_PUBLIC_READONLY=1) -- żądanie BEZ nagłówka Authorization
+    # dostaje rolę `readonly` zamiast 401. Instancja jest wtedy do przeglądania dla
+    # każdego, a admin wchodzi hasłem przez `/login`. Domyślnie WYŁĄCZONE: instalacja
+    # z kodu nie otwiera cudzych danych bez świadomej decyzji operatora.
+    # NIE zastępuje `auth_disabled` -- tamten daje prawa ADMINA i tylko na loopbacku.
+    public_readonly: bool
     data_dir: Path
     # Limit rozmiaru uploadu (GML/GPKG/paczka .zip) w MB; **0 = bez limitu**.
     # Domyślnie 512 MB na instancji sieciowej -- serwer jest współdzielony, a jego
@@ -84,6 +90,7 @@ def load_settings() -> Settings:
 
     auth_password = os.environ.get("RCN_AUTH_PASSWORD", "change-me")
     auth_disabled = os.environ.get("RCN_DISABLE_AUTH") == "1"
+    public_readonly = os.environ.get("RCN_PUBLIC_READONLY") == "1"
 
     # Fail-fast (security review 2026-04-29): nie startuj z domyślnym hasłem
     # `change-me`. Operator-misconfiguration -> public deployment z default
@@ -102,6 +109,7 @@ def load_settings() -> Settings:
         readonly_user=ro_user,
         readonly_password=ro_pass,
         auth_disabled=auth_disabled,
+        public_readonly=public_readonly,
         data_dir=data_dir,
         # Desktop na loopbacku (auth_disabled) -> bez limitu; sieć -> 512 MB.
         # Detekcja środowiska, nie osobna gałąź kodu (patrz Settings.max_upload_mb).

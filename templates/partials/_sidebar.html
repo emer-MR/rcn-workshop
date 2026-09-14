@@ -57,10 +57,14 @@
     </div>
     <div class="wb-filter-section">
         <h3>Lokalizacja</h3>
+        {# Wartością jest klucz "<teryt_gminy>|<obreb>", nie samo oznaczenie:
+           numer obrębu powtarza się między jednostkami ewidencyjnymi (w Łodzi
+           "0024" to cztery różne obręby), więc filtr po samym numerze mieszał
+           transakcje z kilku dzielnic. #}
         <label>Obręb geodezyjny
-            <select multiple size="5" x-model="filters.obreb">
-                <template x-for="v in lookups.obreb" :key="v">
-                    <option :value="v" x-text="v"></option>
+            <select multiple size="5" x-model="filters.obreb_key">
+                <template x-for="o in lookups.obreby" :key="o.key">
+                    <option :value="o.key" x-text="o.label"></option>
                 </template>
             </select>
         </label>

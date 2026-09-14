@@ -93,6 +93,14 @@ body.idx-page main {
     color: #fff;
 }
 .idx-user-pill .role.readonly { background: var(--color-neutral-500); }
+/* Link do logowania w pillu -- widoczny tylko dla gościa (tryb publicznego odczytu). */
+.idx-user-pill .idx-user-login {
+    font-size: 12px;
+    font-weight: var(--weight-semibold);
+    color: var(--color-primary-700);
+    text-decoration: none;
+}
+.idx-user-pill .idx-user-login:hover { text-decoration: underline; }
 
 /* === HERO ================================================== */
 .idx-hero {

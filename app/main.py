@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.analysis import router as analysis_router
-from app.auth import require_auth
+from app.auth import AuthContext, require_admin, require_auth, require_login
 from app.config import settings
 from app.metrics import snapshot
 from app.exports import router as exports_router
@@ -43,6 +43,9 @@ templates.env.globals["analytics_website_id"] = settings.analytics_website_id
 templates.env.globals["source_url"] = settings.source_url
 templates.env.globals["survey_url"] = settings.survey_url
 templates.env.globals["test_warning"] = settings.test_warning
+# Publiczny odczyt: szablony zmieniają wtedy wezwania do działania (splash nie
+# obiecuje logowania każdemu, kto wejdzie) -- patrz config.public_readonly.
+templates.env.globals["public_readonly"] = settings.public_readonly
 # Wersja + kanał: badge BETA w topbarach i klucz zgody modala (raz na wersję).
 templates.env.globals["app_version"] = __version__
 templates.env.globals["is_beta"] = IS_BETA
@@ -75,15 +78,21 @@ def healthz() -> dict:
 
 
 @app.get("/metrics", response_class=JSONResponse)
-def metrics(_: str = Depends(require_auth)) -> dict:
+def metrics(_: str = Depends(require_admin)) -> dict:
+    # Admin, nie „ktokolwiek zalogowany": w trybie publicznego odczytu (patrz
+    # config.public_readonly) rola readonly przypada każdemu gościowi, a zużycie
+    # RAM/CPU serwera i nazwy wgranych plików nie są treścią dla publiczności.
     return snapshot()
 
 
 @app.get("/api/me", response_class=JSONResponse)
 def whoami(ctx=Depends(require_auth)) -> dict:
     """Zwraca tożsamość zalogowanego usera -- frontend używa żeby
-    ukryć/zablokować przyciski edycji dla roli readonly."""
-    return {"username": ctx.username, "role": ctx.role}
+    ukryć/zablokować przyciski edycji dla roli readonly.
+
+    `anonymous` odróżnia gościa z trybu publicznego odczytu od konta readonly:
+    gościowi UI pokazuje link „Zaloguj się", zalogowanemu nie ma po co."""
+    return {"username": ctx.username, "role": ctx.role, "anonymous": ctx.is_anonymous}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -148,6 +157,17 @@ def help_page(request: Request, _: str = Depends(require_auth)):
     """Pełna instrukcja obsługi z prawdziwymi screenshotami aplikacji.
     Wymaga auth (screenshoty zawierają dane RCN nieujawniane publicznie)."""
     return templates.TemplateResponse(request, "help.html", {})
+
+
+@app.get("/login")
+def login(_: AuthContext = Depends(require_login)):
+    """Wejście na konto admina. Po poprawnym haśle -> lista workspace'ów.
+
+    Potrzebne, bo w trybie publicznego odczytu (RCN_PUBLIC_READONLY=1) żaden
+    inny endpoint nie zwraca już 401, więc przeglądarka nie miałaby powodu
+    zapytać o hasło -- gość krążyłby po UI bez możliwości zalogowania się.
+    Zależność `require_auth` tu NIE zadziała: przepuściłaby gościa."""
+    return RedirectResponse(url="/workspaces", status_code=303)
 
 
 @app.get("/logout", response_class=HTMLResponse)

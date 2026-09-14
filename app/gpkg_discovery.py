@@ -35,9 +35,13 @@ def _classify(gpkg: Path) -> tuple[str, str]:
     except Exception:
         pass
     n = _norm(gpkg.stem)
-    if "ID_DZIALKI" in fields or "dzialk" in n:
+    # `startswith`, nie równość: pobieraczka EGIB zapisuje też `ID_DZIALKI_`
+    # (GDAL skraca zbyt długie nazwy kolumn) i wariant małymi literami.
+    ma_dzialki = any(f.startswith("ID_DZIALKI") for f in fields)
+    ma_budynki = any(f.startswith("ID_BUDYNKU") for f in fields)
+    if ma_dzialki or "dzialk" in n:
         return "dzialki", "Działki"
-    if "ID_BUDYNKU" in fields or "budynk" in n or "budynek" in n or "building" in n:
+    if ma_budynki or "budynk" in n or "budynek" in n or "building" in n:
         return "budynki", "Budynki"
     return "", ""
 

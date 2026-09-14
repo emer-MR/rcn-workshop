@@ -126,7 +126,7 @@
         </header>
         <div class="ws-card-body">
             <div class="ws-layer-add">
-                <input type="file" accept=".gml,.xml"
+                <input type="file" accept=".gml,.xml,.zip"
                        @change="newGml.file = $event.target.files[0]; newGml.fileName = $event.target.files[0]?.name || ''">
                 <select x-model="newGml.tryb" style="padding:0.4rem 0.6rem;border:1px solid #cbd5e1;border-radius:4px;">
                     <option value="snapshot">snapshot (pełny okres)</option>
@@ -204,6 +204,85 @@
     </section>
 
     <!-- ===================== HISTORIA IMPORTÓW ===================== -->
+    {# Oznaczenia obrębów. GML niesie tylko numer ("0042"), a oznaczenie
+       urzędowe ("B-42") jest w EGIB -- słownik przenosi je do workspace'u
+       i pozwala poprawić ręcznie. Patrz rcn_core/slownik_obrebow.py. #}
+    <section class="ws-card" x-show="!loading">
+        <header class="ws-card-head">
+            <h2>Oznaczenia obrębów</h2>
+            <p class="muted">
+                Pliki GML niosą tylko numer obrębu (np. <code>0042</code>); oznaczenie urzędowe
+                (<code>B-42</code>, nazwa wsi) pochodzi z EGIB. Słownik trzyma je obok bazy
+                i jedzie razem z paczką workspace'u. Numer nie ginie - po zastosowaniu
+                wyszukiwanie działa i po oznaczeniu, i po numerze.
+            </p>
+        </header>
+        <div class="ws-card-body">
+            <div class="ws-obreby-stat muted tiny" x-show="obreby.zaladowane">
+                Obrębów w bazie: <strong x-text="obreby.obrebow_w_bazie"></strong> ·
+                z oznaczeniem w słowniku: <strong x-text="obreby.pokrytych"></strong> ·
+                już zastosowanych w bazie: <strong x-text="obreby.zastosowanych"></strong>
+                <template x-if="obreby.plik">
+                    <span> · plik: <code x-text="obreby.plik"></code></span>
+                </template>
+                <template x-if="!obreby.plik">
+                    <span> · <em>brak pliku słownika</em></span>
+                </template>
+            </div>
+
+            <div class="ws-obreby-akcje" x-show="isAdmin">
+                <input type="file" accept=".csv"
+                       @change="obreby.plikDoWgrania = $event.target.files[0]">
+                <button class="btn-ghost btn-sm" @click="wgrajSlownikObrebow()"
+                        :disabled="!obreby.plikDoWgrania || obreby.zajety">Wgraj słownik CSV</button>
+                <button class="btn-primary btn-sm" @click="zastosujSlownikObrebow()"
+                        :disabled="obreby.zajety || obreby.pokrytych === 0"
+                        title="Przepisuje oznaczenia ze słownika do bazy i odświeża cache">
+                    <span x-show="!obreby.zajety">Zastosuj oznaczenia w bazie</span>
+                    <span x-show="obreby.zajety">Pracuję...</span>
+                </button>
+            </div>
+
+            <table class="ws-layers-table" x-show="obreby.obreby.length > 0">
+                <thead>
+                    <tr>
+                        <th>Jednostka ewid.</th><th>Numer</th>
+                        <th>W bazie</th><th>Oznaczenie (edytowalne)</th><th>Gmina</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="(o, i) in obrebyWidoczne" :key="o.teryt_gminy + '|' + o.numer_obrebu">
+                        <tr>
+                            <td><code x-text="o.teryt_gminy"></code></td>
+                            <td><code x-text="o.numer_obrebu"></code></td>
+                            <td class="muted tiny" x-text="o.obreb_w_bazie || '—'"></td>
+                            <td>
+                                <input type="text" maxlength="60" x-model="o.oznaczenie"
+                                       :disabled="!isAdmin" placeholder="np. B-42"
+                                       @change="obreby.zmienione = true">
+                            </td>
+                            <td class="muted tiny" x-text="o.gmina || '—'"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            <div class="muted ws-empty" x-show="obreby.zaladowane && obreby.obreby.length === 0">
+                Brak obrębów w bazie (albo baza nie ma jeszcze numerów obrębów).
+            </div>
+            <div class="ws-obreby-stopka" x-show="obreby.obreby.length > obreby.limitWidocznych">
+                <button class="btn-ghost btn-sm" @click="obreby.limitWidocznych += 200">
+                    Pokaż więcej (widocznych <span x-text="obrebyWidoczne.length"></span>
+                    z <span x-text="obreby.obreby.length"></span>)
+                </button>
+            </div>
+            <div class="ws-obreby-akcje" x-show="isAdmin && obreby.obreby.length > 0">
+                <button class="btn-primary btn-sm" @click="zapiszSlownikObrebow()"
+                        :disabled="obreby.zajety || !obreby.zmienione">Zapisz słownik</button>
+                <span class="muted tiny">Ręczne poprawki nie są nadpisywane przy odświeżaniu słownika z EGIB.</span>
+            </div>
+        </div>
+    </section>
+
     <section class="ws-card" x-show="!loading">
         <header class="ws-card-head">
             <h2>Historia importów GML</h2>

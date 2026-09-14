@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import sqlite3
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Literal, Optional
+
+log = logging.getLogger(__name__)
 
 _OBREB_RE = re.compile(r"^[0-9]+_[0-9]+\.([^.]+)\.")
 BATCH = 5000
@@ -167,6 +170,11 @@ def ingest_gml(
     original_filename: str,
     stored_filename: str,
     tryb: Literal["snapshot", "delta"] = "snapshot",
+    # Snapshot wycofuje z bazy wszystko, czego nie ma w pliku, w zakresie dat
+    # tego pliku. Gdy wycofanie jest nieproporcjonalne do zawartości (plik jest
+    # fragmentem zbioru, nie snapshotem), domyślnie ODMAWIAMY -- patrz
+    # `_wycofanie_nieproporcjonalne`. Operator może wymusić świadomie.
+    pozwol_masowe_wycofanie: bool = False,
     import_id: Optional[int] = None,
     now: float | None = None,
     progress: Optional[ProgressCallback] = None,
@@ -418,10 +426,11 @@ def ingest_gml(
                     """
                     INSERT INTO plots (
                         id_rcn, source_import_id,
-                        identyfikator_dzialki, teryt_gminy, obreb, miejscowosc, adres,
+                        identyfikator_dzialki, teryt_gminy, obreb, obreb_numer,
+                        miejscowosc, adres,
                         powierzchnia_m2, cena_brutto, kwota_vat,
                         wkt, centroid_lon, centroid_lat, attributes_json
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     plot_rows[i : i + BATCH],
                 )
@@ -435,10 +444,11 @@ def ingest_gml(
                     """
                     INSERT INTO buildings (
                         id_rcn, source_import_id,
-                        identyfikator_budynku, teryt_gminy, obreb, miejscowosc, adres,
+                        identyfikator_budynku, teryt_gminy, obreb, obreb_numer,
+                        miejscowosc, adres,
                         rodzaj_budynku, pow_uzytkowa, cena_brutto, kwota_vat,
                         wkt, centroid_lon, centroid_lat, attributes_json
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     building_rows[i : i + BATCH],
                 )
@@ -452,10 +462,11 @@ def ingest_gml(
                     """
                     INSERT INTO locals (
                         id_rcn, source_import_id,
-                        identyfikator_lokalu, teryt_gminy, miejscowosc, adres,
+                        identyfikator_lokalu, teryt_gminy, obreb, obreb_numer,
+                        miejscowosc, adres,
                         funkcja, pow_uzytkowa, liczba_izb, kondygnacja, cena_brutto, kwota_vat,
                         wkt, centroid_lon, centroid_lat, attributes_json
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     local_rows[i : i + BATCH],
                 )
@@ -472,8 +483,7 @@ def ingest_gml(
         if tryb == "snapshot" and summary_by_id:
             dates = [s.get("data transakcji") for s in summary_by_id.values() if s.get("data transakcji")]
             if dates:
-                snapshot_date_min = min(dates)
-                snapshot_date_max = max(dates)
+                snapshot_date_min, snapshot_date_max = _zakres_snapshotu(dates)
                 emit("snapshot", 97, f"Snapshot: oznaczam brakujące w zakresie {snapshot_date_min} – {snapshot_date_max}")
                 conn.execute("BEGIN")
                 cur.execute("CREATE TEMP TABLE IF NOT EXISTS _snapshot_ids (id_rcn TEXT PRIMARY KEY)")
@@ -489,17 +499,40 @@ def ingest_gml(
                     "AND id_rcn NOT IN (SELECT id_rcn FROM _snapshot_ids)",
                     (snapshot_date_min, snapshot_date_max),
                 ).fetchone()[0]
-                if withdrawn_count > 0:
+                powod_odmowy = None
+                if withdrawn_count > 0 and not pozwol_masowe_wycofanie:
+                    powod_odmowy = _wycofanie_nieproporcjonalne(
+                        withdrawn_count, len(summary_by_id)
+                    )
+                if powod_odmowy:
+                    # NIE wycofujemy. Tak powstała awaria 2026-09-12: pliki będące
+                    # fragmentami zbioru wgrano jako snapshoty, a każdy uznał
+                    # wszystko, czego nie zawierał, za zniknięte z portalu --
+                    # w Łodzi 20 importów po 7-12 tys. transakcji ukryło 96% bazy
+                    # (159 580 z 166 696), w Warszawie 90%. Dane nie ginęły, ale
+                    # domyślny widok pokazywał ułamek i nikt tego nie zauważył
+                    # przez miesiące.
+                    log.warning("Import %s: pomijam wycofanie %d transakcji -- %s",
+                                original_filename, withdrawn_count, powod_odmowy)
+                    emit("snapshot", 97, f"Pominięto wycofanie {withdrawn_count} transakcji: {powod_odmowy}")
+                    withdrawn_count = 0
+                elif withdrawn_count > 0:
+                    # `withdrawn_by_import_id` (schema v10) mówi, KTÓRY import
+                    # wycofał daną transakcję. Bez tego cofnięcie pomyłki
+                    # wymagało heurystyk po datach -- tak wyglądała naprawa
+                    # awarii 2026-09-12 (836 tys. transakcji na Lennym).
                     cur.execute(
-                        "UPDATE transakcje SET status = 'wycofana_z_portalu' "
+                        "UPDATE transakcje SET status = 'wycofana_z_portalu', "
+                        "withdrawn_by_import_id = ? "
                         "WHERE data_transakcji BETWEEN ? AND ? "
                         "AND status = 'aktywna' "
                         "AND id_rcn NOT IN (SELECT id_rcn FROM _snapshot_ids)",
-                        (snapshot_date_min, snapshot_date_max),
+                        (import_id, snapshot_date_min, snapshot_date_max),
                     )
                 # Ressurect -- jeśli transakcja wróciła do portalu (korekta korekty).
                 cur.execute(
-                    "UPDATE transakcje SET status = 'aktywna' "
+                    "UPDATE transakcje SET status = 'aktywna', "
+                    "withdrawn_by_import_id = NULL "
                     "WHERE status != 'aktywna' "
                     "AND id_rcn IN (SELECT id_rcn FROM _snapshot_ids)"
                 )
@@ -598,6 +631,58 @@ def ingest_gml(
     )
 
 
+# Snapshot wycofujący wielokrotnie więcej, niż sam wnosi, to prawie zawsze
+# fragment zbioru wgrany w złym trybie -- a nie rejestr, z którego zniknęły
+# tysiące wpisów. Progi: bezwzględny, żeby nie blokować małych korekt, oraz
+# krotność zawartości pliku.
+PROG_WYCOFAN_BEZWZGLEDNY = 100
+PROG_WYCOFAN_KROTNOSC = 2.0
+
+
+# Skrajne daty w plikach RCN bywają śmieciem (powiat olsztyński miał
+# `0202-05-10` i `5202-06-03`), a od zakresu snapshotu zależy, ile transakcji
+# zostanie wycofanych. Dlatego zakres liczymy z percentyli, odcinając ogony.
+UŁAMEK_OGONA_SNAPSHOTU = 0.01
+MIN_TX_DO_ODCIECIA_OGONOW = 50
+
+
+def _zakres_snapshotu(daty: list[str]) -> tuple[str, str]:
+    """Okres, w którym snapshot ma prawo wycofywać brakujące transakcje.
+
+    Zwraca 1. i 99. percentyl dat, a nie `MIN`/`MAX`: jedna transakcja
+    z absurdalną datą rozciągała okres na całą historię bazy i kasowała
+    widoczność lat, których plik w ogóle nie dotyczył (awaria 2026-09-12 --
+    Łódź, zapisany zakres 2008-11-06…2026-06-23 przy realnych danych
+    od 2025-07-15).
+
+    Przy małych plikach (<50 transakcji) odcinanie ogonów nie ma sensu
+    statystycznego, więc bierzemy pełny zakres.
+    """
+    posortowane = sorted(daty)
+    if len(posortowane) < MIN_TX_DO_ODCIECIA_OGONOW:
+        return posortowane[0], posortowane[-1]
+    idx = int(len(posortowane) * UŁAMEK_OGONA_SNAPSHOTU)
+    return posortowane[idx], posortowane[-1 - idx]
+
+
+def _wycofanie_nieproporcjonalne(withdrawn_count: int, w_pliku: int) -> str | None:
+    """Zwróć powód odmowy wycofania albo None, gdy skala jest wiarygodna.
+
+    Łódź 2026-07: plik z 7080 transakcjami wycofał 158 479 (22-krotność) --
+    dokładnie ten przypadek ma tu odpadać.
+    """
+    if withdrawn_count <= PROG_WYCOFAN_BEZWZGLEDNY:
+        return None
+    if w_pliku and withdrawn_count <= PROG_WYCOFAN_KROTNOSC * w_pliku:
+        return None
+    krotnosc = (withdrawn_count / w_pliku) if w_pliku else float("inf")
+    return (
+        f"plik wnosi {w_pliku} transakcji, a wycofałby {withdrawn_count} "
+        f"({krotnosc:.0f}× więcej) -- to wygląda na fragment zbioru wgrany jako "
+        f"snapshot. Użyj trybu 'delta' albo wymuś wycofanie świadomie."
+    )
+
+
 def _plot_tuple(plot: dict, id_rcn: str, import_id: int, source_epsg: int) -> tuple:
     wkt = plot.get("_wkt")
     centroid = centroid_4326(wkt, source_epsg) if wkt else None
@@ -611,6 +696,7 @@ def _plot_tuple(plot: dict, id_rcn: str, import_id: int, source_epsg: int) -> tu
         ident,
         teryt_g,
         obreb_display,
+        obreb_num,
         plot.get("dz. - miejscowość"),
         plot.get("dz. - adres"),
         _num(plot.get("dz. - pole pow. ewid.")),
@@ -636,6 +722,7 @@ def _building_tuple(building: dict, id_rcn: str, import_id: int, source_epsg: in
         ident_b,
         teryt_b,
         obreb_display_b,
+        obreb_num_b,
         building.get("bud. - miejscowość"),
         building.get("bud. - adres"),
         building.get("bud. - rodzaj bud."),
@@ -652,11 +739,20 @@ def _building_tuple(building: dict, id_rcn: str, import_id: int, source_epsg: in
 def _local_tuple(local: dict, id_rcn: str, import_id: int, source_epsg: int) -> tuple:
     wkt = local.get("_wkt")
     centroid = centroid_4326(wkt, source_epsg) if wkt else None
+    # Identyfikator lokalu (`106106_9.0012.620_BUD.93_LOK`) niesie jednostkę
+    # i obręb w tych samych dwóch pierwszych segmentach co identyfikator
+    # działki -- do schema v11 oba pola szły tu jako NULL.
+    ident_l = local.get("identyfikator lokalu")
+    teryt_l = teryt_gminy_from_dzialka(ident_l)
+    obreb_num_l = _extract_obreb(ident_l)
+    obreb_display_l = obreb_name_for(teryt_l, obreb_num_l) or obreb_num_l
     return (
         id_rcn,
         import_id,
-        local.get("identyfikator lokalu"),
-        None,
+        ident_l,
+        teryt_l,
+        obreb_display_l,
+        obreb_num_l,
         local.get("lok. - miejscowość"),
         local.get("lok. - adres"),
         local.get("lok. - funkcja"),

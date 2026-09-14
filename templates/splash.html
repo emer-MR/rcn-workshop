@@ -52,7 +52,11 @@
         </div>
 
         <div class="splash-cta">
+            {% if public_readonly %}
+            <a href="/workspaces" class="splash-btn-primary">Przejdź do aplikacji</a>
+            {% else %}
             <a href="/workspaces" class="splash-btn-primary">Zaloguj się i przejdź do aplikacji</a>
+            {% endif %}
             <a href="/instrukcja" class="splash-btn-secondary">📖 Instrukcja obsługi</a>
             {% if survey_url %}
             <a href="/ankieta" target="_blank" rel="noopener" class="splash-btn-secondary">💬 Podziel się opinią</a>
@@ -60,7 +64,12 @@
             {% if download_url %}
             <a href="/pobierz" class="splash-btn-secondary">⬇ Pobierz wersję na komputer{% if is_beta %} (beta){% endif %}</a>
             {% endif %}
+            {% if public_readonly %}
+            <p class="splash-note">Przeglądanie danych, mapa, filtry i eksporty są otwarte dla wszystkich, bez logowania.
+               Wgrywanie plików i edycja notatek wymagają konta — <a href="/login">zaloguj się</a>.</p>
+            {% else %}
             <p class="splash-note">Dostęp wyłącznie dla zalogowanych użytkowników. Skontaktuj się z administratorem aby uzyskać dane logowania.</p>
+            {% endif %}
         </div>
 
         <div class="splash-footer">

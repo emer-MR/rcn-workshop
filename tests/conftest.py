@@ -8,6 +8,14 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+# Fail-fast na domyślnym haśle (app/config.py) chroni wdrożenie, nie testy.
+# Ustawiamy override RAZ, na poziomie procesu: testy trybów logowania
+# przeładowują moduły `app.*` w trakcie sesji, więc bez tego o powodzeniu
+# importu `app.config` decydowałaby kolejność plików testowych (przed tą
+# linią `pytest tests/test_ultrareview_regressions.py` padał samodzielnie,
+# a w pełnym przebiegu przechodził).
+os.environ.setdefault("RCN_ALLOW_INSECURE_DEFAULT", "1")
+
 FIXTURES = ROOT / "tests" / "fixtures"
 DELTA_GML = FIXTURES / "od14do27marca2026.gml"
 

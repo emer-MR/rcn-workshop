@@ -38,6 +38,19 @@ function workspaceSettings() {
 
         imports: [],
 
+        // Oznaczenia obrębów (słownik <nazwa>.obreby.csv obok bazy).
+        // `obreby` trzyma listę PAR (jednostka ewidencyjna, numer) z bazy --
+        // numer sam nie identyfikuje obrębu, patrz rcn_core/slownik_obrebow.py.
+        obreby: {
+            zaladowane: false, zajety: false, zmienione: false,
+            plik: null, wpisow_w_slowniku: 0, obrebow_w_bazie: 0,
+            pokrytych: 0, zastosowanych: 0,
+            obreby: [], plikDoWgrania: null,
+            // Powiat ziemski ma kilkaset obrębów; renderujemy porcjami, żeby
+            // strona ustawień nie budowała tysiąca inputów naraz.
+            limitWidocznych: 200,
+        },
+
         enhancements: [
             {
                 op: 'enrich-egib', dbPhase: 'enrich_egib', producerOnly: true,
@@ -102,7 +115,8 @@ function workspaceSettings() {
                 const me = await fetch('/api/me').then(r => r.ok ? r.json() : null);
                 this.isAdmin = me?.role === 'admin';
             } catch (e) { /* ignore */ }
-            await Promise.all([this.loadInfo(), this.loadLayers(), this.loadImports(), this.loadEnhancements()]);
+            await Promise.all([this.loadInfo(), this.loadLayers(), this.loadImports(),
+                               this.loadEnhancements(), this.wczytajObreby()]);
             this.loading = false;
         },
 
@@ -200,7 +214,10 @@ function workspaceSettings() {
                 }
                 const data = await r.json();
                 this.newGml = { file: null, fileName: '', tryb: this.newGml.tryb, uploading: false };
-                this.showToast(`Wgrywanie startuje (import_id=${data.import_id})`);
+                const ile = (data.import_ids && data.import_ids.length) || 1;
+                this.showToast(data.uwaga || (data.zrodlo_archiwum
+                    ? `Paczka rozpakowana — ${ile} plik(ów) w kolejce`
+                    : `Wgrywanie startuje (import_id=${data.import_id})`));
                 // Reset input file (Alpine x-model nie czyści <input type=file>)
                 document.querySelectorAll('.ws-card input[type=file][accept*=".gml"]').forEach(el => el.value = '');
                 // Odśwież natychmiast historię + zacznij polling status
@@ -341,6 +358,95 @@ function workspaceSettings() {
             } catch (e) {
                 this.showToast('Błąd usuwania: ' + e.message, 'error');
                 this.deleting = false;
+            }
+        },
+
+        get obrebyWidoczne() {
+            return this.obreby.obreby.slice(0, this.obreby.limitWidocznych);
+        },
+
+        async wczytajObreby() {
+            try {
+                const r = await fetch(`/api/workspaces/${wsId}/obreby`);
+                if (!r.ok) return;
+                const d = await r.json();
+                Object.assign(this.obreby, {
+                    zaladowane: true, zmienione: false,
+                    plik: d.plik, wpisow_w_slowniku: d.wpisow_w_slowniku,
+                    obrebow_w_bazie: d.obrebow_w_bazie, pokrytych: d.pokrytych,
+                    zastosowanych: d.zastosowanych, obreby: d.obreby || [],
+                });
+            } catch (e) { /* sekcja zostaje pusta -- nie blokuje strony */ }
+        },
+
+        async zapiszSlownikObrebow() {
+            // Wysyłamy tylko wiersze z oznaczeniem ALBO takie, które je miały
+            // (puste oznaczenie = usunięcie wpisu ze słownika po stronie API).
+            const wpisy = this.obreby.obreby.map(o => ({
+                teryt_gminy: o.teryt_gminy,
+                numer_obrebu: o.numer_obrebu,
+                oznaczenie: (o.oznaczenie || '').trim(),
+                gmina: o.gmina || '',
+            }));
+            this.obreby.zajety = true;
+            try {
+                const r = await fetch(`/api/workspaces/${wsId}/obreby`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wpisy }),
+                });
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({}));
+                    this.showToast(err.detail || `Błąd HTTP ${r.status}`, 'error');
+                    return;
+                }
+                const d = await r.json();
+                this.showToast(`Zapisano słownik: ${d.wpisow} wpisów`);
+                await this.wczytajObreby();
+            } catch (e) {
+                this.showToast('Błąd zapisu słownika: ' + e.message, 'error');
+            } finally {
+                this.obreby.zajety = false;
+            }
+        },
+
+        async wgrajSlownikObrebow() {
+            if (!this.obreby.plikDoWgrania) return;
+            const fd = new FormData();
+            fd.append('file', this.obreby.plikDoWgrania);
+            this.obreby.zajety = true;
+            try {
+                const r = await fetch(`/api/workspaces/${wsId}/obreby/plik`, { method: 'POST', body: fd });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    this.showToast(d.detail || `Błąd HTTP ${r.status}`, 'error');
+                    return;
+                }
+                this.showToast(`Wgrano słownik: ${d.wpisow} wpisów`);
+                this.obreby.plikDoWgrania = null;
+                await this.wczytajObreby();
+            } catch (e) {
+                this.showToast('Błąd wgrywania: ' + e.message, 'error');
+            } finally {
+                this.obreby.zajety = false;
+            }
+        },
+
+        async zastosujSlownikObrebow() {
+            this.obreby.zajety = true;
+            try {
+                const r = await fetch(`/api/workspaces/${wsId}/obreby/zastosuj`, { method: 'POST' });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    this.showToast(d.detail || `Błąd HTTP ${r.status}`, 'error');
+                    return;
+                }
+                this.showToast(`Zastosowano oznaczenia: ${d.zmienione} wierszy`);
+                await this.wczytajObreby();
+            } catch (e) {
+                this.showToast('Błąd stosowania: ' + e.message, 'error');
+            } finally {
+                this.obreby.zajety = false;
             }
         },
 

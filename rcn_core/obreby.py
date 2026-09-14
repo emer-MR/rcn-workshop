@@ -28,7 +28,13 @@ _LAYERS_DIR: Optional[Path] = None
 _CACHE: Optional[dict[str, str]] = None
 _LOCK = Lock()
 
-_IDENT_KEYS = ("ID_DZIALKI", "id_dzialki", "IDDZIALKI", "identyfikator", "IDENTYFIKATOR")
+# Warianty nazwy pola z pełnym identyfikatorem działki. `ID_DZIALKI_`
+# (z podkreśleniem na końcu) NIE jest literówką: tak nazywa je część plików
+# z pobieraczki EGIB, gdy GDAL skraca zbyt długą nazwę kolumny. Powiat
+# międzychodzki (2026-09-09) miał wyłącznie `id_dzialki` i `ID_DZIALKI_`,
+# przez co wzbogacanie dopasowało 0 działek z 6 687 możliwych.
+_IDENT_KEYS = ("ID_DZIALKI", "id_dzialki", "ID_DZIALKI_", "IDDZIALKI",
+               "identyfikator", "IDENTYFIKATOR")
 _NAZWA_KEYS = ("NAZWA_OBREBU", "nazwa_obrebu", "NAZWAOBREBU", "nazwa_obr", "OBREB_NAZW")
 _IDENT_RE = re.compile(r"^([0-9]+_[0-9]+)\.([^.]+)\.")
 

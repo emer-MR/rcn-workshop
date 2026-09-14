@@ -292,7 +292,8 @@ def run_plugin(
         conn.close()
 
     from app.plugin_ctx import PluginCtx
-    ctx = PluginCtx(_poi_sqlite(workspace_id), params=body.params)
+    sidecary: dict = {}
+    ctx = PluginCtx(_poi_sqlite(workspace_id), params=body.params, **sidecary)
     try:
         result = rec.run(rows, ctx) if rec.accepts_ctx else rec.run(rows)
     except Exception as exc:

@@ -65,6 +65,10 @@ CREATE TABLE IF NOT EXISTS transakcje (
     strona_sprzedajaca     TEXT,
     strona_kupujaca        TEXT,
     liczba_obiektow        INTEGER NOT NULL DEFAULT 0,
+    -- Który import oznaczył tę transakcję jako wycofaną z portalu (schema v10).
+    -- Bez tego cofnięcie pomyłkowego snapshotu wymaga heurystyk po datach --
+    -- patrz awaria 2026-09-12 w CLAUDE.md.
+    withdrawn_by_import_id INTEGER REFERENCES imports(id) ON DELETE SET NULL,
     attributes_json        TEXT
 );
 
@@ -83,6 +87,10 @@ CREATE TABLE IF NOT EXISTS plots (
     identyfikator_dzialki TEXT,
     teryt_gminy           TEXT,
     obreb                 TEXT,
+    -- Numer obrębu z identyfikatora EGIB ("0042"), obok `obreb`, które po
+    -- wzbogaceniu niesie oznaczenie urzędowe ("B-24"). Dwie kolumny, bo
+    -- rzeczoznawcy szukają raz tak, raz tak -- patrz `obreb_search` w query.py.
+    obreb_numer           TEXT,
     miejscowosc           TEXT,
     adres                 TEXT,
     powierzchnia_m2       REAL,
@@ -107,6 +115,7 @@ CREATE TABLE IF NOT EXISTS buildings (
     identyfikator_budynku TEXT,
     teryt_gminy           TEXT,
     obreb                 TEXT,
+    obreb_numer           TEXT,
     miejscowosc           TEXT,
     adres                 TEXT,
     rodzaj_budynku        TEXT,
@@ -131,6 +140,11 @@ CREATE TABLE IF NOT EXISTS locals (
     source_import_id      INTEGER NOT NULL REFERENCES imports(id) ON DELETE CASCADE,
     identyfikator_lokalu  TEXT,
     teryt_gminy           TEXT,
+    -- Obręb lokalu: drugi segment identyfikatora (`106106_9.0012.620_BUD.93_LOK`)
+    -- -- ten sam, co dla działki i budynku tej samej transakcji. Bez tych dwóch
+    -- kolumn transakcja lokalowa bez działki i budynku nie miała obrębu wcale.
+    obreb                 TEXT,
+    obreb_numer           TEXT,
     miejscowosc           TEXT,
     adres                 TEXT,
     funkcja               TEXT,
@@ -175,6 +189,7 @@ CREATE TABLE IF NOT EXISTS tx_cache (
     miejscowosc        TEXT,
     adres              TEXT,
     obreb              TEXT,
+    obreb_numer        TEXT,
     teryt_gminy        TEXT,
     centroid_lon       REAL,
     centroid_lat       REAL,
@@ -187,6 +202,7 @@ CREATE TABLE IF NOT EXISTS tx_cache (
 );
 CREATE INDEX IF NOT EXISTS idx_tx_cache_miejsc ON tx_cache(miejscowosc);
 CREATE INDEX IF NOT EXISTS idx_tx_cache_obreb  ON tx_cache(obreb);
+-- idx_tx_cache_obreb_numer tworzy _migrate() (kolumna migrowana, v9).
 CREATE INDEX IF NOT EXISTS idx_tx_cache_centroid ON tx_cache(centroid_lon, centroid_lat);
 
 -- Tracking ulepszeń (enrich_egib, compute_flags, geocoding) uruchamianych
@@ -272,7 +288,21 @@ def apply_schema(conn) -> None:
 #     do plots/buildings/locals/tx_cache rzucałby 'no such function:
 #     GeometryConstraints'. Kolumna `geom` i spatial_ref_sys zostają nieużywane
 #     (pełne odchudzenie + VACUUM = osobny krok).
-CURRENT_SCHEMA_VERSION = 8
+# 9 = kolumna `obreb_numer` w plots/buildings/tx_cache (2026-09-12). Numer
+#     obrębu z identyfikatora EGIB trzymany OBOK oznaczenia w `obreb`: po
+#     wzbogaceniu `obreb` niesie "B-24", a numer "0042" przestawał być
+#     wyszukiwalny. Zgłoszenie testera z Łodzi -- używa się tam obu form.
+# 10 = kolumna `withdrawn_by_import_id` w transakcje (2026-09-12). Snapshot
+#      zapisuje, który import wycofał transakcję -- bez tego cofnięcie pomyłki
+#      wymagało zgadywania po datach (awaria: 836 tys. transakcji ukrytych
+#      na Lennym, 701 tys. na produkcji).
+# 11 = kolumny `obreb` i `obreb_numer` w locals (2026-09-14) + backfill
+#      `locals.teryt_gminy`, które ingest do tej pory zostawiał pustym
+#      (zmierzone na fixture Łodzi: 604 lokale, 604 NULL-e). Identyfikator
+#      lokalu niesie obręb w drugim segmencie dokładnie tak samo jak
+#      identyfikator działki, więc filtr po obrębie ma od tej wersji komplet
+#      obiektów -- także transakcje mające WYŁĄCZNIE lokal.
+CURRENT_SCHEMA_VERSION = 11
 
 
 def _migrate_v8(conn) -> None:
@@ -294,6 +324,86 @@ def _migrate_v8(conn) -> None:
         "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'idx\\_%\\_geom' ESCAPE '\\'"
     ).fetchall():
         conn.execute(f'DROP TABLE IF EXISTS "{name}"')
+
+
+def _backfill_obreb_numer(conn) -> None:
+    """Wypełnij `obreb_numer` z identyfikatora EGIB (migracje v9 i v11).
+
+    Numer obrębu to drugi segment identyfikatora `106102_9.0042.44/1`.
+    Identyfikator lokalu (`106106_9.0012.620_BUD.93_LOK`) ma go w tym samym
+    miejscu, więc od v11 lokale idą tą samą ścieżką co działki i budynki.
+    Liczymy go jednym UPDATE per tabela, w SQL -- pętla w Pythonie po ~2 mln
+    wierszach działek Warszawy trwałaby minuty, a backfill biegnie w ścieżce
+    `apply_schema`, czyli przy pierwszym żądaniu po wdrożeniu.
+
+    Idempotentne: rusza tylko wiersze z NULL-em.
+    """
+    for tabela, kol in (("plots", "identyfikator_dzialki"),
+                        ("buildings", "identyfikator_budynku"),
+                        ("locals", "identyfikator_lokalu")):
+        conn.execute(f"""
+            UPDATE {tabela}
+               SET obreb_numer = substr(
+                       {kol},
+                       instr({kol}, '.') + 1,
+                       instr(substr({kol}, instr({kol}, '.') + 1), '.') - 1)
+             WHERE obreb_numer IS NULL
+               AND {kol} IS NOT NULL
+               AND instr({kol}, '.') > 0
+               AND instr(substr({kol}, instr({kol}, '.') + 1), '.') > 1
+        """)
+    # `obreb` lokalu bez słownika to sam numer -- dokładnie to, co ingest
+    # zapisuje dla działki, gdy `obreby.name_for()` nic nie zwróci. Zastosowanie
+    # słownika oznaczeń podmieni to potem na "B-42".
+    conn.execute("""
+        UPDATE locals SET obreb = obreb_numer
+         WHERE obreb IS NULL AND obreb_numer IS NOT NULL
+    """)
+
+    # teryt_gminy lokali (v11): `_local_tuple` wstawiał tam twarde None, więc
+    # kolumna istniała pusta od początku (fixture Łodzi: 604 lokale, 604 NULL-e).
+    # Pierwszy segment identyfikatora, ten sam co `teryt_gminy_from_dzialka`.
+    conn.execute("""
+        UPDATE locals
+           SET teryt_gminy = substr(identyfikator_lokalu, 1,
+                                    instr(identyfikator_lokalu, '.') - 1)
+         WHERE teryt_gminy IS NULL
+           AND identyfikator_lokalu IS NOT NULL
+           AND instr(identyfikator_lokalu, '.') > 1
+    """)
+    # tx_cache: numer reprezentanta transakcji. TRZY skorelowane UPDATE-y, każdy
+    # trafiający w `idx_plots_id_rcn` / `idx_buildings_id_rcn` / `idx_locals_id_rcn`
+    # -- najpierw działki, potem budynki i lokale dla tego, co zostało puste.
+    # Lokale są ostatnie, bo mają być uzupełnieniem, a nie reprezentantem
+    # transakcji, która ma działkę.
+    #
+    # ⚠️ NIE łączyć tego w jedno zapytanie z podzapytaniem `UNION ALL` po obu
+    # tabelach: takie podzapytanie jest materializowane bez indeksu i wykonywane
+    # raz na wiersz cache, czyli O(n²). Zmierzone na skali Warszawy (600 tys. tx,
+    # 1,2 mln działek): wariant z `UNION ALL` **91 376 s = 25,4 h**, ten poniżej
+    # **4,5 s** — ponad 20 000×. Pierwsze żądanie po wdrożeniu wisiałoby dobę.
+    #
+    # Różnica semantyczna wobec `refresh_tx_cache` (MIN po obu tabelach naraz):
+    # transakcja mająca działkę i budynek w RÓŻNYCH obrębach dostanie tu numer
+    # działki, nie mniejszy z dwóch. To anomalia danych (osobno oznaczana flagą
+    # `multi_object_act`), a najbliższy `refresh_tx_cache` i tak przeliczy cache.
+    for tabela in ("plots", "buildings", "locals"):
+        conn.execute(f"""
+            UPDATE tx_cache SET obreb_numer = (
+                SELECT MIN(o.obreb_numer) FROM {tabela} o
+                 WHERE o.id_rcn = tx_cache.id_rcn AND o.obreb_numer IS NOT NULL
+            )
+            WHERE obreb_numer IS NULL
+        """)
+    # To samo dla oznaczenia: cache transakcji mającej WYŁĄCZNIE lokal miał do
+    # v11 `obreb` pusty, bo lokale nie wnosiły obrębu do `refresh_tx_cache`.
+    conn.execute("""
+        UPDATE tx_cache SET obreb = (
+            SELECT MIN(l.obreb) FROM locals l
+             WHERE l.id_rcn = tx_cache.id_rcn AND l.obreb IS NOT NULL
+        )
+        WHERE obreb IS NULL
+    """)
 
 
 def refresh_tx_cache(conn, id_rcn_list: list[str] | None = None) -> None:
@@ -322,17 +432,18 @@ def refresh_tx_cache(conn, id_rcn_list: list[str] | None = None) -> None:
     # dla pełnego rebuild (id_rcn_list=None) to trwa kilka sekund.
     sql = f"""
     WITH objects AS MATERIALIZED (
-        SELECT id_rcn, miejscowosc, adres, obreb, teryt_gminy, centroid_lon, centroid_lat FROM plots
+        SELECT id_rcn, miejscowosc, adres, obreb, obreb_numer, teryt_gminy, centroid_lon, centroid_lat FROM plots
         UNION ALL
-        SELECT id_rcn, miejscowosc, adres, obreb, teryt_gminy, centroid_lon, centroid_lat FROM buildings
+        SELECT id_rcn, miejscowosc, adres, obreb, obreb_numer, teryt_gminy, centroid_lon, centroid_lat FROM buildings
         UNION ALL
-        SELECT id_rcn, miejscowosc, adres, NULL,  teryt_gminy, centroid_lon, centroid_lat FROM locals
+        SELECT id_rcn, miejscowosc, adres, obreb, obreb_numer, teryt_gminy, centroid_lon, centroid_lat FROM locals
     ),
     tx_agg AS MATERIALIZED (
         SELECT id_rcn,
                MIN(miejscowosc) AS miejscowosc,
                MIN(adres)       AS adres,
                MIN(obreb)       AS obreb,
+               MIN(obreb_numer) AS obreb_numer,
                MIN(teryt_gminy) AS teryt_gminy,
                MIN(centroid_lon) AS centroid_lon,
                MIN(centroid_lat) AS centroid_lat
@@ -365,7 +476,7 @@ def refresh_tx_cache(conn, id_rcn_list: list[str] | None = None) -> None:
         GROUP BY id_rcn
     )
     INSERT INTO tx_cache (
-        id_rcn, miejscowosc, adres, obreb, teryt_gminy,
+        id_rcn, miejscowosc, adres, obreb, obreb_numer, teryt_gminy,
         centroid_lon, centroid_lat,
         plot_count, building_count, local_count, area_m2,
         first_plot_ident, plot_idents_concat
@@ -375,6 +486,7 @@ def refresh_tx_cache(conn, id_rcn_list: list[str] | None = None) -> None:
         tx_agg.miejscowosc,
         tx_agg.adres,
         tx_agg.obreb,
+        tx_agg.obreb_numer,
         tx_agg.teryt_gminy,
         tx_agg.centroid_lon,
         tx_agg.centroid_lat,
@@ -403,6 +515,7 @@ def refresh_tx_cache(conn, id_rcn_list: list[str] | None = None) -> None:
         miejscowosc        = excluded.miejscowosc,
         adres              = excluded.adres,
         obreb              = excluded.obreb,
+        obreb_numer        = excluded.obreb_numer,
         teryt_gminy        = excluded.teryt_gminy,
         centroid_lon       = excluded.centroid_lon,
         centroid_lat       = excluded.centroid_lat,
@@ -500,6 +613,20 @@ def _migrate(conn) -> None:
         if not has_column(table, "geom_source"):
             conn.execute(f"ALTER TABLE {table} ADD COLUMN geom_source TEXT DEFAULT 'gml'")
 
+    # obreb_numer w plots/buildings/tx_cache (v9, 2026-09-12) -- numer obrębu
+    # z identyfikatora EGIB trzymany obok oznaczenia w `obreb`, żeby po
+    # wzbogaceniu ("B-24") numer ("0042") nadal dawał się wyszukać.
+    for table in ("plots", "buildings", "tx_cache"):
+        if not has_column(table, "obreb_numer"):
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN obreb_numer TEXT")
+
+    # obreb + obreb_numer w locals (v11, 2026-09-14) -- identyfikator lokalu
+    # niesie obręb w tym samym miejscu co identyfikator działki, a bez tych
+    # kolumn transakcja mająca wyłącznie lokal wypadała z filtra obrębów.
+    for col in ("obreb", "obreb_numer"):
+        if not has_column("locals", col):
+            conn.execute(f"ALTER TABLE locals ADD COLUMN {col} TEXT")
+
     # data_quality_flags w transakcje (v6, 2026-04-29) -- JSON array stringów flag
     # (no_objects, multi_object_act, extreme_price_per_m2, zero_area,
     # total_price_split_suspect). NULL = jeszcze nie obliczone, [] = OK,
@@ -507,10 +634,21 @@ def _migrate(conn) -> None:
     if not has_column("transakcje", "data_quality_flags"):
         conn.execute("ALTER TABLE transakcje ADD COLUMN data_quality_flags TEXT")
 
+    # withdrawn_by_import_id (v10, 2026-09-12) -- ślad, który import wycofał
+    # transakcję. Istniejące wycofania zostają bez znacznika (NULL): nie da się
+    # ich już przypisać do importu, bo ta informacja nigdy nie była zapisywana.
+    if not has_column("transakcje", "withdrawn_by_import_id"):
+        conn.execute("ALTER TABLE transakcje ADD COLUMN withdrawn_by_import_id INTEGER")
+
     # Indeksy na migrowanych kolumnach (bezwarunkowo, IF NOT EXISTS).
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tx_rodzaj ON transakcje(rodzaj_nieruchomosci)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_plots_obreb ON plots(obreb)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_buildings_obreb ON buildings(obreb)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tx_cache_obreb_numer ON tx_cache(obreb_numer)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_plots_obreb_numer ON plots(obreb_numer)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_buildings_obreb_numer ON buildings(obreb_numer)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_locals_obreb ON locals(obreb)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_locals_obreb_numer ON locals(obreb_numer)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tx_status ON transakcje(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_plots_geom_source ON plots(geom_source)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_buildings_geom_source ON buildings(geom_source)")
@@ -530,6 +668,7 @@ def _migrate(conn) -> None:
     # triggery+R-tree (obowiązkowe, inaczej zapisy pękają na GeometryConstraints).
     if version >= 3:
         _migrate_v8(conn)
+        _backfill_obreb_numer(conn)
         _set_schema_version(conn, CURRENT_SCHEMA_VERSION)
         return
 
@@ -605,6 +744,8 @@ def _migrate(conn) -> None:
     # Full refresh tx_cache (version 3 -- materialized view). Robimy to raz
     # w ramach migracji; dalsze odświeżanie jest częściowe (per affected_ids)
     # w `ingest_gml`.
+    _backfill_obreb_numer(conn)
+
     refresh_tx_cache(conn, id_rcn_list=None)
 
     # Teardown SpatiaLite (v8). Świeża baza nie ma triggerów/R-tree -> no-op;

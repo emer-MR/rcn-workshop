@@ -371,6 +371,8 @@ def workspace_poi_layer(
     }
 
 
+
+
 @router.get("/egib/{layer}.geojson")
 def egib_local(
     layer: Literal["dzialki", "budynki"],

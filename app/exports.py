@@ -172,6 +172,10 @@ def _describe_filters(filters: QueryFilters) -> str:
         parts.append("miejscowość: " + "/".join(filters.miejscowosc))
     if filters.obreb:
         parts.append("obręb: " + "/".join(filters.obreb))
+    if filters.obreb_key:
+        # Klucz niesie jednostkę ewidencyjną ("106103_9|0024"); w opisie eksportu
+        # liczy się samo oznaczenie obrębu, bo to ono identyfikuje teren w operacie.
+        parts.append("obręb: " + "/".join(k.split("|", 1)[-1] for k in filters.obreb_key))
     if filters.data_od or filters.data_do:
         parts.append(f"data: {filters.data_od or '…'} → {filters.data_do or '…'}")
     if filters.cena_min is not None or filters.cena_max is not None:

@@ -26,7 +26,19 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from pydantic import BaseModel
 
 from app.auth import AuthContext, require_admin, require_auth
+from rcn_core.slownik_obrebow import (
+    SUFIKS as SUFIKS_OBREBOW,
+    ZRODLO_RECZNY,
+    WpisObrebu,
+    obreby_z_bazy,
+    sciezka_slownika,
+    wczytaj,
+    zapisz,
+    zastosuj_do_bazy,
+    znajdz_slownik,
+)
 from app.config import settings
+from rcn_core.archiwum import BlednaPaczka, PaczkaZaDuza, wypakuj_gml
 from rcn_core.producer import HAS_PRODUCER
 from rcn_core.ingest import (
     create_import_record,
@@ -101,6 +113,14 @@ class UploadResponse(BaseModel):
     status: str = "processing"
     stage: str = "queued"
     progress_pct: int = 0
+    # Archiwum .zip może nieść kilka GML-i (powiat bywa dzielony po gminach).
+    # `import_id` wskazuje wtedy PIERWSZY z nich -- dla zgodności ze starym
+    # klientem -- a pełna lista jest tutaj, w kolejności przetwarzania.
+    import_ids: list[int] = []
+    zrodlo_archiwum: str | None = None
+    # Ustawiane, gdy serwer zmienił tryb importu (patrz `upload_gml`) -- UI ma
+    # to pokazać, żeby zmiana nie była cicha.
+    uwaga: str | None = None
 
 
 # Tożsamość workspace'u = NAZWA FOLDERU (UUID lub dowolna czytelna, np. "Kutno").
@@ -108,6 +128,12 @@ class UploadResponse(BaseModel):
 _UNSAFE_ID = re.compile(r"[\\/]|\.\.")
 _NOTES_SUFFIX = ".notes.sqlite"  # nakładka notatek (D3) -- NIE jest bazą główną
 _POI_SUFFIX = ".poi.sqlite"      # plik POI dla wtyczek -- NIE jest bazą główną
+# Wszystkie sidecary obok bazy głównej. KAŻDY nowy sufiks dopisz też w
+# rcn_producer/cli.py (_find_main_sqlite + _collect_clean_cut) -- druga kopia listy.
+_SIDECAR_SUFFIXES = (
+    _NOTES_SUFFIX,
+    _POI_SUFFIX,
+)
 
 
 def _validate_id(workspace_id: str) -> None:
@@ -122,14 +148,14 @@ def _workspace_dir(workspace_id: str) -> Path:
 
 def _resolve_main_sqlite(wdir: Path) -> Path | None:
     """Główna baza workspace'u: dowolny `*.sqlite` w korzeniu folderu, poza
-    `*.notes.sqlite` (nakładka notatek) i `*.poi.sqlite` (dane POI dla wtyczek;
-    KRYTYCZNE -- `Kutno.poi.sqlite` sortuje się PRZED `Kutno.sqlite`). Preferuje
+    sidecarami (`*.notes.sqlite`, `*.poi.sqlite`; KRYTYCZNE --
+    `Kutno.poi.sqlite` sortuje się PRZED `Kutno.sqlite`). Preferuje
     `workspace.sqlite`; przy wielu kandydatach -- deterministycznie pierwszy
     alfabetycznie."""
     if not wdir.is_dir():
         return None
     cands = [p for p in sorted(wdir.glob("*.sqlite"))
-             if not p.name.endswith((_NOTES_SUFFIX, _POI_SUFFIX))]
+             if not p.name.endswith(_SIDECAR_SUFFIXES)]
     if not cands:
         return None
     preferred = wdir / "workspace.sqlite"
@@ -144,6 +170,8 @@ def _poi_sqlite(workspace_id: str) -> Path | None:
         return None
     cands = sorted(wdir.glob(f"*{_POI_SUFFIX}"))
     return cands[0] if cands else None
+
+
 
 
 def _has_main_sqlite(wdir: Path) -> bool:
@@ -366,10 +394,10 @@ async def create_workspace_with_files(
         raise HTTPException(status_code=400, detail="At least one GML file is required")
     for gml in gml_files:
         fn = (gml.filename or "").lower()
-        if not fn.endswith((".gml", ".xml")):
+        if not fn.endswith((".gml", ".xml", ".zip")):
             raise HTTPException(
                 status_code=400,
-                detail=f"GML file must have .gml or .xml extension: {gml.filename}",
+                detail=f"Plik musi mieć rozszerzenie .gml, .xml albo .zip: {gml.filename}",
             )
     if len(gpkg_names) != len(gpkg_files):
         raise HTTPException(
@@ -463,7 +491,15 @@ async def _store_uploaded_files(
         finally:
             conn.close()
 
-    # 2. GML-e -- każdy zapis + background ingest. Tryb domyślny 'snapshot'.
+    # 2. GML-e -- każdy zapis + background ingest.
+    #
+    # ⚠️ Tryb `delta`, nie `snapshot` (zmiana 2026-09-14). Nowy workspace bierze
+    # zwykle KILKA plików naraz (roczniki, miesiące, gminy, zawartość archiwum),
+    # a snapshot wycofuje z bazy wszystko, czego nie ma w importowanym pliku
+    # w zakresie jego dat -- czyli drugi plik kasowałby dorobek pierwszego.
+    # Dokładnie tak powstała awaria 2026-09-12 (836 tys. transakcji ukrytych
+    # na Lennym, 701 tys. na produkcji). Na pustej bazie snapshot nie miałby
+    # zresztą czego wycofać, więc dla pierwszego pliku oba tryby są równoważne.
     uploads_dir = _workspace_uploads(workspace_id)
     uploads_dir.mkdir(parents=True, exist_ok=True)
     db_path = _workspace_db(workspace_id)
@@ -471,7 +507,7 @@ async def _store_uploaded_files(
 
     for gml in gml_files:
         original = (gml.filename or "upload.gml").strip() or "upload.gml"
-        stored = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}_{_safe_filename(original)}"
+        stored = _nazwa_uploadu(original)
         stored_path = uploads_dir / stored
         max_bytes = settings.max_upload_bytes  # None = bez limitu (desktop)
         total = 0
@@ -492,19 +528,58 @@ async def _store_uploaded_files(
                 handle.write(chunk)
         await gml.close()
 
+        # Archiwum wchodzi tą samą drogą co GML, tylko rozpada się na kilka
+        # importów -- po jednym na plik w środku.
+        if original.lower().endswith(".zip"):
+            try:
+                rozpakowane = wypakuj_gml(
+                    stored_path,
+                    uploads_dir,
+                    nazwa_docelowa=_nazwa_uploadu,
+                    limit_bajtow=max_bytes,
+                )
+            except PaczkaZaDuza as exc:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"{exc} {settings.max_upload_mb} MB dla {original} "
+                           f"(limit zmienia RCN_MAX_UPLOAD_MB)",
+                ) from exc
+            except BlednaPaczka as exc:
+                raise HTTPException(status_code=400, detail=f"{original}: {exc}") from exc
+            finally:
+                stored_path.unlink(missing_ok=True)
+
+            for plik in rozpakowane:
+                pending_ingests.append({
+                    "db_path": db_path,
+                    "gml_path": plik.sciezka,
+                    "original_filename": plik.nazwa_oryginalna,
+                    "stored_filename": plik.sciezka.name,
+                    "tryb": "delta",
+                    "import_id": create_import_record(
+                        db_path,
+                        original_filename=plik.nazwa_oryginalna,
+                        stored_filename=plik.sciezka.name,
+                        file_size_bytes=plik.rozmiar,
+                        tryb="delta",
+                    ),
+                    "file_size": plik.rozmiar,
+                })
+            continue
+
         import_id = create_import_record(
             db_path,
             original_filename=original,
             stored_filename=stored,
             file_size_bytes=total,
-            tryb="snapshot",
+            tryb="delta",
         )
         pending_ingests.append({
             "db_path": db_path,
             "gml_path": stored_path,
             "original_filename": original,
             "stored_filename": stored,
-            "tryb": "snapshot",
+            "tryb": "delta",
             "import_id": import_id,
             "file_size": total,
         })
@@ -670,10 +745,11 @@ def list_custom_layers(
         layers.append({"slug": d["slug"], "name": d["name"], "file": d["file"],
                        "size_bytes": size})
     layers += [m for m in meta_layers if isinstance(m, dict) and m.get("slug") not in disc_slugs]
-    # has_poi: frontend dokłada warstwę POI (serwowaną z /api/layers/.../poi.geojson)
-    # tylko gdy plik istnieje -- bez 404-owania na każdym workspace bez POI.
-    return {"workspace_id": workspace_id, "layers": layers,
-            "has_poi": _poi_sqlite(workspace_id) is not None}
+    # has_poi: frontend dokłada warstwę POI (/api/layers/.../poi.geojson) tylko
+    # gdy plik istnieje -- bez 404-owania na każdym workspace bez sidecara.
+    wynik = {"workspace_id": workspace_id, "layers": layers,
+             "has_poi": _poi_sqlite(workspace_id) is not None}
+    return wynik
 
 
 # --- Plik POI (warstwa + wtyczki) -- zarządzanie po stronie KONSUMENTA -------
@@ -1240,7 +1316,10 @@ async def upload_gml(
     workspace_id: str,
     background: BackgroundTasks,
     file: UploadFile,
-    tryb: Literal["snapshot", "delta"] = Form("snapshot"),
+    # Domyślnie `delta`: snapshot wycofuje z bazy wszystko, czego nie ma
+    # w pliku (w zakresie jego dat). Awaria 2026-09-12 wzięła się z tego, że
+    # fragmenty zbioru poleciały jako snapshoty -- patrz CLAUDE.md.
+    tryb: Literal["snapshot", "delta"] = Form("delta"),
     _: str = Depends(require_admin),
 ) -> UploadResponse:
     """Stream the upload to disk, create a `processing` import record, hand the
@@ -1253,13 +1332,21 @@ async def upload_gml(
     _require_workspace(workspace_id)
 
     original_name = (file.filename or "upload.gml").strip() or "upload.gml"
-    if not original_name.lower().endswith((".gml", ".xml")):
-        raise HTTPException(status_code=400, detail="File must have .gml or .xml extension")
+    # `.zip` jest tu równoprawny z GML-em: źródła rozsyłają powiat spakowany
+    # (często kilka GML-i po gminach), a ręczne rozpakowywanie przed wgraniem
+    # było czystą uciążliwością. Paczka WORKSPACE'U (`rcn pack`) ma osobny
+    # endpoint `/import` i tam trafia po zawartości, nie po rozszerzeniu.
+    z_archiwum = original_name.lower().endswith(".zip")
+    if not z_archiwum and not original_name.lower().endswith((".gml", ".xml")):
+        raise HTTPException(
+            status_code=400,
+            detail="Plik musi mieć rozszerzenie .gml, .xml albo .zip (archiwum z GML-ami)",
+        )
 
     uploads_dir = _workspace_uploads(workspace_id)
     uploads_dir.mkdir(parents=True, exist_ok=True)
 
-    stored_name = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}_{_safe_filename(original_name)}"
+    stored_name = _nazwa_uploadu(original_name)
     stored_path = uploads_dir / stored_name
 
     max_bytes = settings.max_upload_bytes  # None = bez limitu (desktop)
@@ -1282,6 +1369,81 @@ async def upload_gml(
     await file.close()
 
     db_path = _workspace_db(workspace_id)
+
+    if z_archiwum:
+        try:
+            pliki = wypakuj_gml(
+                stored_path,
+                uploads_dir,
+                nazwa_docelowa=_nazwa_uploadu,
+                limit_bajtow=max_bytes,
+            )
+        except PaczkaZaDuza as exc:
+            stored_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=413,
+                detail=f"{exc} {settings.max_upload_mb} MB (limit zmienia RCN_MAX_UPLOAD_MB)",
+            ) from exc
+        except BlednaPaczka as exc:
+            stored_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        finally:
+            # Samo archiwum nie jest już potrzebne -- w historii importów liczą
+            # się rozpakowane GML-e, każdy ze swoim rekordem.
+            stored_path.unlink(missing_ok=True)
+
+        # ⚠️ Paczka z kilkoma GML-ami w trybie `snapshot` to awaria 2026-09-12
+        # rozegrana od nowa: drugi plik wycofałby wszystko, co wniósł pierwszy
+        # (snapshot wycofuje z bazy wszystko, czego nie ma w pliku, w zakresie
+        # jego dat). Pliki z jednej paczki są z definicji FRAGMENTAMI zbioru,
+        # więc tryb jest tu wymuszany na `delta` -- z informacją dla operatora,
+        # bo cicha podmiana trybu byłaby równie zła jak sama pomyłka.
+        uwaga: str | None = None
+        if tryb == "snapshot" and len(pliki) > 1:
+            tryb = "delta"
+            uwaga = (
+                f"Archiwum zawiera {len(pliki)} plików, więc import poszedł w trybie "
+                f"delta. W trybie snapshot każdy kolejny plik wycofywałby "
+                f"transakcje wniesione przez poprzedni."
+            )
+
+        # Zadania w tle FastAPI idą sekwencyjnie, więc GML-e z jednej paczki
+        # przetwarzają się po kolei -- tak jak przy wgraniu ich pojedynczo.
+        importy: list[int] = []
+        for gml in pliki:
+            gml_import_id = create_import_record(
+                db_path,
+                original_filename=gml.nazwa_oryginalna,
+                stored_filename=gml.sciezka.name,
+                file_size_bytes=gml.rozmiar,
+                tryb=tryb,
+            )
+            importy.append(gml_import_id)
+            background.add_task(
+                _run_ingest_in_background,
+                db_path=db_path,
+                gml_path=gml.sciezka,
+                original_filename=gml.nazwa_oryginalna,
+                stored_filename=gml.sciezka.name,
+                tryb=tryb,
+                import_id=gml_import_id,
+                file_size=gml.rozmiar,
+            )
+
+        pierwszy = pliki[0]
+        return UploadResponse(
+            import_id=importy[0],
+            original_filename=pierwszy.nazwa_oryginalna,
+            stored_filename=pierwszy.sciezka.name,
+            tryb=tryb,
+            status="processing",
+            stage="queued",
+            progress_pct=0,
+            import_ids=importy,
+            zrodlo_archiwum=original_name,
+            uwaga=uwaga,
+        )
+
     import_id = create_import_record(
         db_path,
         original_filename=original_name,
@@ -1309,6 +1471,7 @@ async def upload_gml(
         status="processing",
         stage="queued",
         progress_pct=0,
+        import_ids=[import_id],
     )
 
 
@@ -1383,7 +1546,7 @@ class RegisterImportRequest(BaseModel):
     3-5× faster than a multipart HTTP POST."""
     filename: str
     original_filename: str | None = None
-    tryb: Literal["snapshot", "delta"] = "snapshot"
+    tryb: Literal["snapshot", "delta"] = "delta"
 
 
 @router.post(
@@ -1510,6 +1673,187 @@ def delete_import(
     upload_path.unlink(missing_ok=True)
 
 
+def _nazwa_uploadu(original: str) -> str:
+    """Nazwa pliku w `uploads/`: znacznik czasu + losowy sufiks + bezpieczna nazwa.
+
+    Znacznik czasu porządkuje katalog chronologicznie, uuid rozstrzyga kolizje
+    przy wgraniu dwóch plików o tej samej nazwie w tej samej milisekundzie
+    (realne przy rozpakowaniu archiwum).
+    """
+    return f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}_{_safe_filename(original)}"
+
+
 def _safe_filename(name: str) -> str:
     safe = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in name)
     return safe[-120:] or "upload.gml"
+
+
+# --- Słownik oznaczeń obrębów -------------------------------------------------
+# Numer obrębu z GML nie niesie oznaczenia urzędowego („B-24" w Łodzi); ono jest
+# tylko w EGIB. Słownik `<nazwa>.obreby.csv` przenosi je do workspace'u (12 KB
+# zamiast 70 MB warstwy) i daje operatorowi możliwość poprawienia wpisu.
+# Szczegóły formatu: `rcn_core/slownik_obrebow.py`.
+
+
+class WpisSlownikaObrebow(BaseModel):
+    teryt_gminy: str
+    numer_obrebu: str
+    oznaczenie: str
+    gmina: str = ""
+    zrodlo: str = ""
+
+
+class SlownikObrebowRequest(BaseModel):
+    wpisy: list[WpisSlownikaObrebow]
+
+
+@router.get("/{workspace_id}/obreby")
+def get_slownik_obrebow(workspace_id: str, _: str = Depends(require_auth)) -> dict:
+    """Obręby WYSTĘPUJĄCE W BAZIE + oznaczenie ze słownika, jeśli jest.
+
+    UI pokazuje dokładnie te obręby, których dotyczą dane workspace'u -- nie
+    cały powiat z EGIB -- żeby operator widział, co jest jeszcze nieopisane.
+    """
+    workspace_id = resolve_workspace_id(workspace_id)
+    _require_workspace(workspace_id)
+    wdir = _workspace_dir(workspace_id)
+    plik = znajdz_slownik(wdir)
+    slownik = wczytaj(plik) if plik else {}
+
+    conn = open_workspace(_workspace_db(workspace_id))
+    try:
+        pary = obreby_z_bazy(conn)
+    finally:
+        conn.close()
+
+    wiersze = []
+    for teryt, numer, obecne in pary:
+        wpis = slownik.get(f"{teryt}.{numer}")
+        wiersze.append({
+            "teryt_gminy": teryt,
+            "numer_obrebu": numer,
+            "obreb_w_bazie": obecne,
+            "oznaczenie": wpis.oznaczenie if wpis else "",
+            "gmina": wpis.gmina if wpis else "",
+            "zrodlo": wpis.zrodlo if wpis else "",
+        })
+    return {
+        "plik": plik.name if plik else None,
+        "wpisow_w_slowniku": len(slownik),
+        "obrebow_w_bazie": len(wiersze),
+        "pokrytych": sum(1 for w in wiersze if w["oznaczenie"]),
+        "zastosowanych": sum(1 for w in wiersze
+                             if w["oznaczenie"] and w["oznaczenie"] == w["obreb_w_bazie"]),
+        "obreby": wiersze,
+    }
+
+
+@router.put("/{workspace_id}/obreby")
+def put_slownik_obrebow(
+    workspace_id: str,
+    body: SlownikObrebowRequest,
+    _: str = Depends(require_admin),
+) -> dict:
+    """Zapisz słownik. Wpisy przychodzące z UI dostają `zrodlo=reczny`, więc
+    kolejne generowanie z EGIB ich nie nadpisze."""
+    workspace_id = resolve_workspace_id(workspace_id)
+    _require_workspace(workspace_id)
+    wdir = _workspace_dir(workspace_id)
+    plik = znajdz_slownik(wdir)
+    if plik is None:
+        main = _resolve_main_sqlite(wdir)
+        plik = sciezka_slownika(wdir, main.name if main is not None else "workspace.sqlite")
+
+    stare = wczytaj(plik)
+    wynik = dict(stare)
+    for w in body.wpisy:
+        teryt = w.teryt_gminy.strip()
+        numer = w.numer_obrebu.strip()
+        oznaczenie = w.oznaczenie.strip()
+        if not teryt or not numer:
+            continue
+        klucz = f"{teryt}.{numer}"
+        if not oznaczenie:
+            # Puste oznaczenie = usunięcie wpisu; zostawione w słowniku
+            # wyczyściłoby oznaczenie w bazie przy następnym „zastosuj".
+            wynik.pop(klucz, None)
+            continue
+        obecny = stare.get(klucz)
+        wynik[klucz] = WpisObrebu(
+            teryt_gminy=teryt, numer_obrebu=numer, oznaczenie=oznaczenie,
+            gmina=(w.gmina or (obecny.gmina if obecny else "")).strip(),
+            zrodlo=ZRODLO_RECZNY,
+        )
+    ile = zapisz(plik, wynik.values())
+    log.info("Słownik obrębów %s: zapisano %d wpisów (%s)", workspace_id, ile, plik.name)
+    return {"status": "ok", "plik": plik.name, "wpisow": ile}
+
+
+@router.post("/{workspace_id}/obreby/zastosuj")
+def zastosuj_slownik_obrebow(
+    workspace_id: str,
+    wykonaj: bool = True,
+    _: str = Depends(require_admin),
+    __: None = Depends(assert_workspace_idle),
+) -> dict:
+    """Przepisz oznaczenia ze słownika do kolumny `obreb` i odśwież `tx_cache`.
+
+    Numer obrębu zostaje w `obreb_numer`, więc po zastosowaniu wyszukiwanie
+    działa i po oznaczeniu („B-24"), i po numerze („0042").
+    """
+    workspace_id = resolve_workspace_id(workspace_id)
+    _require_workspace(workspace_id)
+    wdir = _workspace_dir(workspace_id)
+    plik = znajdz_slownik(wdir)
+    slownik = wczytaj(plik) if plik else {}
+    if not slownik:
+        raise HTTPException(
+            status_code=400,
+            detail="Workspace nie ma słownika obrębów (pliku *.obreby.csv) "
+                   "albo jest on pusty. Wgraj słownik albo uzupełnij oznaczenia.",
+        )
+    conn = open_workspace(_workspace_db(workspace_id))
+    try:
+        stat = zastosuj_do_bazy(conn, slownik, wykonaj=wykonaj)
+    finally:
+        conn.close()
+    log.info("Słownik obrębów %s: zastosowano (wykonaj=%s) -> %s",
+             workspace_id, wykonaj, stat)
+    return {"status": "ok" if wykonaj else "dry-run", **stat}
+
+
+@router.post("/{workspace_id}/obreby/plik")
+async def upload_slownik_obrebow(
+    workspace_id: str,
+    file: UploadFile = File(...),
+    _: str = Depends(require_admin),
+) -> dict:
+    """Wgraj gotowy słownik CSV (wygenerowany z EGIB narzędziem producenta)."""
+    workspace_id = resolve_workspace_id(workspace_id)
+    _require_workspace(workspace_id)
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Słownik obrębów musi być plikiem .csv")
+    wdir = _workspace_dir(workspace_id)
+    main = _resolve_main_sqlite(wdir)
+    docelowy = sciezka_slownika(wdir, main.name if main is not None else "workspace.sqlite")
+
+    tmp = wdir / f".obreby-upload-{uuid.uuid4().hex}.tmp"
+    try:
+        tresc = await file.read()
+        await file.close()
+        if len(tresc) > 8 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Słownik obrębów przekracza 8 MB")
+        tmp.write_bytes(tresc)
+        wpisy = wczytaj(tmp)
+        if not wpisy:
+            raise HTTPException(
+                status_code=400,
+                detail="Plik nie zawiera ani jednego poprawnego wiersza "
+                       "(oczekiwane kolumny: teryt_gminy;numer_obrebu;oznaczenie;gmina;zrodlo)",
+            )
+        for stary in wdir.glob(f"*{SUFIKS_OBREBOW}"):
+            stary.unlink()
+        tmp.replace(docelowy)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return {"status": "ok", "plik": docelowy.name, "wpisow": len(wpisy)}

@@ -71,7 +71,9 @@
                 <span>Kolekcja</span>
                 <span class="wb-cart-count" x-text="selectedIds.size"></span>
             </button>
-            <span class="wb-role-badge" x-show="!isAdmin" title="Jesteś zalogowany jako readonly -- upload/edycja notatek niedostępne">👁 readonly</span>
+            <span class="wb-role-badge" x-show="!isAdmin"
+                  :title="me.anonymous ? 'Przeglądasz jako gość - upload i edycja notatek wymagają zalogowania' : 'Jesteś zalogowany jako readonly -- upload/edycja notatek niedostępne'"
+                  x-text="me.anonymous ? '👁 gość' : '👁 readonly'"></span>
             <div class="wb-topbar-divider" aria-hidden="true"></div>
             <div class="wb-admin-dropdown" x-data="{ open: false }" @click.outside="open = false">
                 <button class="btn-ghost btn-sm" @click="open = !open" :class="open ? 'active' : ''" :aria-expanded="open" aria-haspopup="menu" :title="isAdmin ? 'Menu admina' : 'Menu konta'">
@@ -94,7 +96,8 @@
                     <a :href="'/workspaces/' + workspaceId + '/settings'" class="wb-admin-item" role="menuitem" x-show="isAdmin">🔧 Ustawienia workspace</a>
                     <a href="/help" class="wb-admin-item" role="menuitem">📖 Instrukcja obsługi</a>
                     <div class="wb-admin-divider" role="separator"></div>
-                    <a href="/logout" class="wb-admin-item wb-admin-logout" role="menuitem">🚪 Wyloguj <span class="muted tiny" x-text="'(' + me.username + ')'"></span></a>
+                    <a href="/logout" class="wb-admin-item wb-admin-logout" role="menuitem" x-show="!me.anonymous">🚪 Wyloguj <span class="muted tiny" x-text="'(' + me.username + ')'"></span></a>
+                    <a href="/login" class="wb-admin-item" role="menuitem" x-show="me.anonymous">🔑 Zaloguj się</a>
                 </div>
             </div>
         </div>
@@ -794,13 +797,24 @@
             <h2>Upload GML</h2>
             <form @submit.prevent="doUpload()" class="stack">
                 <label>Plik
-                    <input type="file" accept=".gml,.xml" @change="file = $event.target.files[0]">
+                    <input type="file" accept=".gml,.xml,.zip" @change="file = $event.target.files[0]">
+                    <small class="muted">GML albo archiwum .zip z GML-ami (każdy plik z paczki
+                        to osobny import; paczka z kilkoma plikami zawsze idzie trybem delta).</small>
                 </label>
+                {# Delta jest pierwsza i domyślna: snapshot WYCOFUJE z bazy
+                   wszystko, czego nie ma w pliku (w zakresie jego dat), więc
+                   pomyłka na tym polu potrafi ukryć większość bazy -- tak
+                   powstała awaria 2026-09-12 (96% Łodzi jako „wycofane"). #}
                 <label>Tryb
                     <select x-model="uploadTryb">
-                        <option value="snapshot">Snapshot (pełny powiat)</option>
-                        <option value="delta">Delta (przyrostowy, np. Łódź)</option>
+                        <option value="delta">Delta — dołącz i zaktualizuj (bezpieczne)</option>
+                        <option value="snapshot">Snapshot — zastąp okres, wycofa brakujące</option>
                     </select>
+                    <span class="muted tiny" x-show="uploadTryb === 'snapshot'">
+                        ⚠️ Snapshot oznaczy jako „wycofane z portalu" wszystkie transakcje
+                        z zakresu dat tego pliku, których w nim nie ma. Używaj tylko dla
+                        plików zawierających KOMPLET transakcji z danego okresu.
+                    </span>
                 </label>
                 <template x-if="uploadStatus">
                     <pre class="upload-status" x-text="uploadStatus"></pre>
@@ -975,6 +989,7 @@
             <template x-if="poiStatus">
                 <pre class="upload-status" x-text="poiStatus"></pre>
             </template>
+
 
             <p x-show="!isAdmin" class="muted">Readonly — dodawanie i usuwanie zablokowane.</p>
             <div class="row-end">

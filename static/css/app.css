@@ -4233,6 +4233,32 @@ tr.import-row.status-failed td     { background: #fecaca; }
     border-radius: 4px;
 }
 
+/* Oznaczenia obrębów (słownik) -- układ jak .ws-layer-add, plus edytowalne
+   pole oznaczenia w tabeli. */
+.ws-obreby-stat {
+    margin-bottom: 0.75rem;
+}
+.ws-obreby-akcje {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #e2e8f0;
+    flex-wrap: wrap;
+}
+.ws-obreby-stopka {
+    margin-top: 0.5rem;
+}
+.ws-layers-table input[type="text"] {
+    width: 100%;
+    max-width: 180px;
+    padding: 0.25rem 0.4rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font: inherit;
+}
+
 /* Enhancements */
 .ws-enh {
     padding: 1rem 0;
@@ -4359,3 +4385,5 @@ tr.import-row.status-failed td     { background: #fecaca; }
     vertical-align: middle;
     cursor: help;
 }
+
+.marker-tip .tip-price { font-weight: var(--weight-semibold); color: var(--color-neutral-900); margin-bottom: var(--space-2); }

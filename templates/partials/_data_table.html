@@ -106,8 +106,8 @@
                 </td>
                 <td>
                     <span x-show="item.obreb" class="wb-linkable"
-                          @click.stop="wbSetObrebFilter(item.obreb)"
-                          :title="'Filtruj po obrębie: ' + (item.obreb || '')"
+                          @click.stop="wbSetObrebFilter(item.obreb, item.teryt_gminy)"
+                          :title="'Filtruj po obrębie: ' + (item.obreb || '') + (item.teryt_gminy ? ' (' + item.teryt_gminy + ')' : '')"
                           x-text="item.obreb"></span>
                     <span x-show="!item.obreb">—</span>
                 </td>

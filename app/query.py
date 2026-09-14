@@ -12,6 +12,7 @@ round-trip.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from typing import Literal, Optional
 
@@ -47,6 +48,12 @@ class QueryFilters(BaseModel):
     miejscowosc: Optional[list[str]] = None
     teryt_gminy: Optional[list[str]] = None
     obreb: Optional[list[str]] = None
+    # Obręb jednoznacznie: numer w identyfikancie EGIB jest unikalny TYLKO w ramach
+    # jednostki ewidencyjnej, więc samo "0024" w Łodzi znaczy cztery różne obręby
+    # (B-24 Bałuty, G-24 Górna, P-24 Polesie, W-24 Widzew). Klucz ma postać
+    # "<teryt_gminy>|<obreb>"; pusty teryt (dane bez identyfikatora) = "|<obreb>".
+    # Stary `obreb` zostaje dla zgodności zapisanych linków i wtyczek.
+    obreb_key: Optional[list[str]] = None
     obreb_search: Optional[str] = None  # LIKE w nazwie obrębu, np. "Bałuty" -- filtr z headera tabeli
     adres: Optional[str] = None
     # Wiki-linki: klik w identyfikator obiektu w tabeli filtruje tabelę do wszystkich
@@ -107,6 +114,12 @@ class QueryItem(BaseModel):
     building_count: int
     local_count: int
     obreb: str | None = None
+    # Numer obrębu z identyfikatora EGIB -- pokazywany obok oznaczenia, gdy
+    # baza ma nazwy z EGIB ("B-24 · 0024"); inaczej równy `obreb`.
+    obreb_numer: str | None = None
+    # Jednostka ewidencyjna obrębu -- bez niej klik w obręb w tabeli nie potrafi
+    # ustawić jednoznacznego filtra (ten sam numer bywa w kilku dzielnicach).
+    teryt_gminy: str | None = None
     plot_idents: list[str] = []
     miejscowosc: str | None
     adres: str | None
@@ -230,18 +243,63 @@ def _attribute_clauses(filters: QueryFilters) -> tuple[list[str], list]:
         clauses.append(f"t.rodzaj_nieruchomosci IN ({_placeholders(filters.rodzaj_nieruchomosci)})")
         params.extend(filters.rodzaj_nieruchomosci)
     if filters.obreb:
+        # Dopasowanie po oznaczeniu ALBO po numerze: zapisane linki i wtyczki
+        # trzymają zwykle numer ("0024"), a kolumna `obreb` po wzbogaceniu
+        # z EGIB niesie oznaczenie ("G-24") -- bez drugiej kolumny stary filtr
+        # przestawałby cokolwiek znajdować po każdym wzbogaceniu bazy.
+        # Uwaga: ten filtr z natury ZWIJA obręby o tym samym numerze z różnych
+        # jednostek ewidencyjnych; jednoznaczny jest `obreb_key`.
         placeholders = _placeholders(filters.obreb)
-        clauses.append(
-            f"t.id_rcn IN ("
-            f"SELECT id_rcn FROM plots WHERE obreb IN ({placeholders}) "
-            f"UNION SELECT id_rcn FROM buildings WHERE obreb IN ({placeholders})"
-            f")"
-        )
-        params.extend(filters.obreb)
-        params.extend(filters.obreb)
+        warunek = f"(obreb IN ({placeholders}) OR obreb_numer IN ({placeholders}))"
+        clauses.append(_id_rcn_po_obrebie(warunek))
+        # Dwie listy placeholderów (oznaczenie, numer) na każdą tabelę.
+        for _ in TABELE_Z_OBREBEM:
+            params.extend(filters.obreb)
+            params.extend(filters.obreb)
+    if filters.obreb_key:
+        pary = [_rozbij_klucz_obrebu(k) for k in filters.obreb_key]
+        pary = [p for p in pary if p is not None]
+        if pary:
+            warunek = " OR ".join(
+                "(teryt_gminy IS NULL AND obreb = ?)" if teryt == "" else "(teryt_gminy = ? AND obreb = ?)"
+                for teryt, _ in pary
+            )
+            plaskie: list = []
+            for teryt, obreb in pary:
+                if teryt:
+                    plaskie.extend([teryt, obreb])
+                else:
+                    plaskie.append(obreb)
+            clauses.append(_id_rcn_po_obrebie(warunek))
+            for _ in TABELE_Z_OBREBEM:
+                params.extend(plaskie)
     if filters.obreb_search:
-        clauses.append("tc.obreb LIKE ?")
-        params.append(f"%{filters.obreb_search.strip()}%")
+        fraza = filters.obreb_search.strip()
+        if fraza.isdigit():
+            # Sam numer: "24" ma znaleźć obręb 24 -- niezależnie od tego, czy
+            # baza trzyma go jako "24", "0024", czy jako oznaczenie "B-24".
+            # LIKE '%24%' łapało przy okazji 0240 i 1024 (zgłoszenie 2026-09-12).
+            warunek = ("(obreb_numer = ? OR obreb_numer = ? "
+                       " OR obreb = ? OR obreb = ? OR obreb LIKE ?)")
+            wartosci: list = [fraza, fraza.zfill(4), fraza, fraza.zfill(4), f"%-{int(fraza)}"]
+        else:
+            # Oznaczenie literowe: "B-24", "b24" i "B 24" to jedno i to samo,
+            # a tester wpisuje raz tak, raz tak. Obok zwykłego LIKE po nazwie
+            # sprawdzamy dopasowanie po usunięciu separatorów.
+            znorm = re.sub(r"[^0-9A-ZĄĆĘŁŃÓŚŹŻ]", "", fraza.upper())
+            warunek = ("(obreb LIKE ? "
+                       " OR REPLACE(REPLACE(UPPER(obreb), '-', ''), ' ', '') = ?)")
+            wartosci = [f"%{fraza}%", znorm]
+        # Szukamy we WSZYSTKICH obiektach transakcji, nie w `tx_cache`.
+        # Cache trzyma jednego reprezentanta (MIN po działkach i budynkach), więc
+        # transakcja z działkami w G-41, G-42 i G-43 była znajdowana tylko pod
+        # „G-41" -- mimo że rozwinięcie wiersza pokazuje wszystkie trzy.
+        # Zgłoszenie testera 2026-09-12; dotyczyło 83 aktywnych transakcji
+        # w Łodzi i 173 w powiecie zgierskim. Filtry z katalogu (`obreb`,
+        # `obreb_key`) zawsze szukały po obiektach -- teraz jest to spójne.
+        clauses.append(_id_rcn_po_obrebie(warunek))
+        for _ in TABELE_Z_OBREBEM:
+            params.extend(wartosci)
     if filters.plot_ident:
         clauses.append(
             "t.id_rcn IN (SELECT id_rcn FROM plots WHERE identyfikator_dzialki = ?)"
@@ -352,6 +410,66 @@ def _placeholders(values: list) -> str:
     return ",".join("?" * len(values))
 
 
+# Obręb niosą wszystkie trzy rodzaje obiektów -- lokale od schema v11. Lista
+# jest wspólna dla trzech filtrów (`obreb`, `obreb_key`, `obreb_search`) i dla
+# katalogu w `lookups`, bo rozjazd między nimi znaczyłby, że katalog pokazuje
+# obręb, którego filtr nie znajduje.
+TABELE_Z_OBREBEM = ("plots", "buildings", "locals")
+
+
+# Katalog jednoznaczny: para (jednostka ewidencyjna, obręb). Bez tego jedna
+# pozycja „0024" reprezentuje w Łodzi cztery różne obręby. Zbudowany z tych
+# samych tabel co filtry (`TABELE_Z_OBREBEM`) -- stała, bo sprawdza go test.
+OBREBY_LOOKUP_SQL = """
+    SELECT DISTINCT teryt_gminy, obreb, obreb_numer FROM (
+        SELECT teryt_gminy, obreb, obreb_numer FROM plots     WHERE obreb IS NOT NULL
+        UNION SELECT teryt_gminy, obreb, obreb_numer FROM buildings WHERE obreb IS NOT NULL
+        UNION SELECT teryt_gminy, obreb, obreb_numer FROM locals    WHERE obreb IS NOT NULL
+    ) ORDER BY COALESCE(obreb_numer, obreb), teryt_gminy
+"""
+
+
+def _id_rcn_po_obrebie(warunek: str) -> str:
+    """`t.id_rcn IN (...)` -- ten sam warunek zadany każdej tabeli obiektów.
+
+    Parametry trzeba powtórzyć tyle razy, ile jest tabel (`TABELE_Z_OBREBEM`).
+    """
+    return "t.id_rcn IN (" + " UNION ".join(
+        f"SELECT id_rcn FROM {t} WHERE {warunek}" for t in TABELE_Z_OBREBEM
+    ) + ")"
+
+
+def _rozbij_klucz_obrebu(klucz: str) -> tuple[str, str] | None:
+    """"<teryt>|<obreb>" -> ("106103_9", "0024"). Zwraca None dla śmieci.
+
+    Pusty teryt ("|0024") znaczy „rekordy bez identyfikatora jednostki"
+    i jest dopasowywany przez `teryt_gminy IS NULL`.
+    """
+    if not klucz or "|" not in klucz:
+        return None
+    teryt, _, obreb = klucz.partition("|")
+    obreb = obreb.strip()
+    if not obreb:
+        return None
+    return teryt.strip(), obreb
+
+
+def _etykieta_obrebu(teryt: str | None, obreb: str, numer: str | None = None) -> str:
+    """Etykieta pozycji katalogu obrębów.
+
+    Pokazuje OBIE formy, bo rzeczoznawcy szukają raz oznaczenia urzędowego,
+    raz numeru z identyfikatora działki:
+    - z EGIB    -> „B-24 · 0024"
+    - bez EGIB  -> „0024 · 106102_9" (numer sam nie identyfikuje obrębu,
+      bo powtarza się między jednostkami ewidencyjnymi jednego miasta)
+    """
+    if numer and numer != obreb:
+        return f"{obreb} · {numer}"
+    if not teryt:
+        return obreb
+    return f"{obreb} · {teryt}"
+
+
 def _spatial_filter_ids(conn: sqlite3.Connection, geometry: BBoxFilter | PolygonFilter) -> set[str]:
     """Return set of id_rcn whose ANY object has a centroid inside the given geometry.
 
@@ -440,6 +558,8 @@ def query_workspace(
                  ELSE NULL END AS cena_na_m2,
             tc.plot_count, tc.building_count, tc.local_count,
             tc.obreb,
+            tc.obreb_numer,
+            tc.teryt_gminy,
             tc.plot_idents_concat,
             tc.first_plot_ident,
             tc.miejscowosc, tc.adres,
@@ -458,7 +578,22 @@ def query_workspace(
         ).fetchone()[0]
 
         offset = (body.page - 1) * body.pageSize
-        order_sql = f"ORDER BY {body.sort.column} {body.sort.order.upper()} NULLS LAST, t.id_rcn ASC"
+        kierunek = body.sort.order.upper()
+        if body.sort.column == "obreb":
+            # Obręb sortujemy po jednostce ewidencyjnej i NUMERZE, nie po tekście
+            # oznaczenia: alfabetycznie „B-10" wypada przed „B-2", a po
+            # wzbogaceniu z EGIB cała kolumna to oznaczenia. Grupowanie po
+            # jednostce daje kolejność, która wygląda naturalnie (B-1, B-2, …,
+            # B-10, potem G-1), bo prefiks jest w niej stały. Numer ma zera
+            # wiodące („0001"), więc porównanie tekstowe jest tu numeryczne.
+            # Oznaczenie zostaje trzecim kluczem -- dla baz, gdzie kilka nazw
+            # dzieli numer w jednej jednostce.
+            kolumny = (f"tc.teryt_gminy {kierunek} NULLS LAST, "
+                       f"tc.obreb_numer {kierunek} NULLS LAST, "
+                       f"tc.obreb {kierunek} NULLS LAST")
+        else:
+            kolumny = f"{body.sort.column} {kierunek} NULLS LAST"
+        order_sql = f"ORDER BY {kolumny}, t.id_rcn ASC"
 
         page_sql = base_cte + f" {order_sql} LIMIT ? OFFSET ?"
         rows = conn.execute(page_sql, [*params, body.pageSize, offset]).fetchall()
@@ -482,6 +617,8 @@ def query_workspace(
             building_count=r["building_count"] or 0,
             local_count=r["local_count"] or 0,
             obreb=r["obreb"],
+            obreb_numer=r["obreb_numer"],
+            teryt_gminy=r["teryt_gminy"],
             plot_idents=(r["plot_idents_concat"].split("|") if r["plot_idents_concat"] else []),
             miejscowosc=r["miejscowosc"],
             adres=r["adres"],
@@ -575,6 +712,7 @@ def workspace_geojson(
     miejscowosc: Optional[list[str]] = Query(None),
     teryt_gminy: Optional[list[str]] = Query(None),
     obreb: Optional[list[str]] = Query(None),
+    obreb_key: Optional[list[str]] = Query(None),
     obreb_search: Optional[str] = Query(None),
     adres: Optional[str] = Query(None),
     plot_ident: Optional[str] = Query(None),
@@ -616,6 +754,7 @@ def workspace_geojson(
         miejscowosc=miejscowosc,
         teryt_gminy=teryt_gminy,
         obreb=obreb,
+        obreb_key=obreb_key,
         obreb_search=obreb_search,
         adres=adres,
         plot_ident=plot_ident,
@@ -715,13 +854,26 @@ def workspace_geojson(
 # powiazanych z tym obiektem (po plot_ident/building_ident/local_ident).
 
 
+class ObrebOption(BaseModel):
+    """Jedna pozycja katalogu obrębów -- jednoznaczna, bo z jednostką ewidencyjną."""
+    key: str            # "106103_9|0024" -- wartość filtra `obreb_key`
+    obreb: str          # "0024" albo "G-24", gdy baza ma nazwy z EGIB
+    obreb_numer: str | None = None   # "0024" -- zawsze numer, także gdy `obreb` to nazwa
+    teryt_gminy: str | None = None
+    label: str          # to, co widzi użytkownik
+
+
 class LookupsResponse(BaseModel):
     rodzaj_rynku: list[str]
     rodzaj_transakcji: list[str]
     rodzaj_nieruchomosci: list[str]
     miejscowosc: list[str]
     teryt_gminy: list[str]
+    # Płaska lista oznaczeń -- ZWIJA obręby o tym samym numerze z różnych
+    # jednostek ewidencyjnych, więc do filtrowania służy `obreby` niżej.
+    # Zostaje dla zgodności (zapisane linki, wtyczki czytające lookups).
     obreb: list[str]
+    obreby: list[ObrebOption]
 
 
 @router.get("/{workspace_id}/lookups", response_model=LookupsResponse)
@@ -748,8 +900,10 @@ def workspace_lookups(
             SELECT DISTINCT obreb FROM (
                 SELECT obreb FROM plots WHERE obreb IS NOT NULL
                 UNION SELECT obreb FROM buildings WHERE obreb IS NOT NULL
+                UNION SELECT obreb FROM locals WHERE obreb IS NOT NULL
             ) ORDER BY obreb
         """
+        obreby_sql = OBREBY_LOOKUP_SQL
         miejscowosc_sql = """
             SELECT DISTINCT miejscowosc FROM (
                 SELECT miejscowosc FROM plots
@@ -764,6 +918,17 @@ def workspace_lookups(
                 UNION SELECT teryt_gminy FROM locals
             ) WHERE teryt_gminy IS NOT NULL ORDER BY teryt_gminy
         """
+        obreby = [
+            ObrebOption(
+                key=f"{r[0] or ''}|{r[1]}",
+                obreb=r[1],
+                obreb_numer=r[2],
+                teryt_gminy=r[0],
+                label=_etykieta_obrebu(r[0], r[1], r[2]),
+            )
+            for r in conn.execute(obreby_sql).fetchall()
+            if r[1]
+        ]
         return LookupsResponse(
             rodzaj_rynku=rodzaj_rynku,
             rodzaj_transakcji=rodzaj_transakcji,
@@ -771,6 +936,7 @@ def workspace_lookups(
             miejscowosc=distinct(miejscowosc_sql),
             teryt_gminy=distinct(teryt_sql),
             obreb=distinct(obreb_sql),
+            obreby=obreby,
         )
     finally:
         conn.close()

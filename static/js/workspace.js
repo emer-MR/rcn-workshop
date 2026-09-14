@@ -4,7 +4,7 @@ function workspaceView(workspaceId) {
     return {
         workspaceId,
         info: {},
-        me: { username: '', role: 'readonly' },
+        me: { username: '', role: 'readonly', anonymous: false },
         imports: [],
         // Workspace lock state (busy = trwa import lub ulepszenie). Gdy active,
         // overlay zakrywa mapę/tabelę; reszta boot()u jest pomijana. Polling
@@ -12,7 +12,7 @@ function workspaceView(workspaceId) {
         // żeby fresh-data trafiło do UI.
         busy: { active: false, kind: '', label: '', duration_s: 0, since: 0 },
         _busyTimer: null,
-        lookups: { rodzaj_rynku: [], rodzaj_transakcji: [], rodzaj_nieruchomosci: [], miejscowosc: [], teryt_gminy: [], obreb: [] },
+        lookups: { rodzaj_rynku: [], rodzaj_transakcji: [], rodzaj_nieruchomosci: [], miejscowosc: [], teryt_gminy: [], obreb: [], obreby: [] },
         filters: {
             rodzaj_rynku: [],
             rodzaj_transakcji: [],
@@ -20,6 +20,7 @@ function workspaceView(workspaceId) {
             miejscowosc: [],
             teryt_gminy: [],
             obreb: [],
+            obreb_key: [],
             obreb_search: null,
             adres: '',
             cena_min: null,
@@ -172,7 +173,9 @@ function workspaceView(workspaceId) {
         spatial: { active: false, kind: null, bbox: null, polygon: null },
 
         openUpload: false,
-        uploadTryb: 'snapshot',
+        // Delta domyślnie -- snapshot wycofuje brakujące i pomyłka na tym polu
+        // kosztowała już widoczność 96% bazy Łodzi (awaria 2026-09-12).
+        uploadTryb: 'delta',
         file: null,
         uploading: false,
         uploadStatus: '',
@@ -713,6 +716,7 @@ function workspaceView(workspaceId) {
                 (f.miejscowosc || []).forEach(v => qs.append('miejscowosc', v));
                 (f.teryt_gminy || []).forEach(v => qs.append('teryt_gminy', v));
                 (f.obreb || []).forEach(v => qs.append('obreb', v));
+                (f.obreb_key || []).forEach(v => qs.append('obreb_key', v));
                 if (f.obreb_search?.trim()) qs.set('obreb_search', f.obreb_search.trim());
                 if (f.adres?.trim()) qs.set('adres', f.adres.trim());
                 if (f.cena_min != null && f.cena_min !== '') qs.set('cena_min', f.cena_min);
@@ -1010,7 +1014,7 @@ function workspaceView(workspaceId) {
 
         buildFiltersPayload(includeSelection = true) {
             const f = {};
-            const copy = ['rodzaj_rynku','rodzaj_transakcji','rodzaj_nieruchomosci','miejscowosc','teryt_gminy','obreb'];
+            const copy = ['rodzaj_rynku','rodzaj_transakcji','rodzaj_nieruchomosci','miejscowosc','teryt_gminy','obreb','obreb_key'];
             copy.forEach(k => { if (this.filters[k]?.length) f[k] = this.filters[k]; });
             if (this.filters.cena_min != null && this.filters.cena_min !== '') f.cena_min = Number(this.filters.cena_min);
             if (this.filters.cena_max != null && this.filters.cena_max !== '') f.cena_max = Number(this.filters.cena_max);
@@ -1440,10 +1444,13 @@ function workspaceView(workspaceId) {
             this.page = 1;
             this.runQuery();
         },
-        wbSetObrebFilter(obreb) {
+        wbSetObrebFilter(obreb, terytGminy) {
             if (!obreb) return;
             // Zamień, nie dokładaj: jeden klik = filtr tylko po tym obrębie.
-            this.filters.obreb = [obreb];
+            // Filtrujemy po kluczu z jednostką ewidencyjną, bo sam numer trafia
+            // też w obręby o tym samym numerze w innych dzielnicach.
+            this.filters.obreb = [];
+            this.filters.obreb_key = [`${terytGminy || ''}|${obreb}`];
             this.page = 1;
             this.runQuery();
         },
@@ -1549,6 +1556,7 @@ function workspaceView(workspaceId) {
             (f.miejscowosc || []).forEach(v => qs.append('miejscowosc', v));
             (f.teryt_gminy || []).forEach(v => qs.append('teryt_gminy', v));
             (f.obreb || []).forEach(v => qs.append('obreb', v));
+            (f.obreb_key || []).forEach(v => qs.append('obreb_key', v));
             if (f.obreb_search && f.obreb_search.trim()) qs.set('obreb_search', f.obreb_search.trim());
             if (f.plot_ident) qs.set('plot_ident', f.plot_ident);
             if (f.building_ident) qs.set('building_ident', f.building_ident);
@@ -2182,6 +2190,7 @@ function workspaceView(workspaceId) {
             return null;
         },
 
+
         renderMarkers(fitBounds = false) {
             if (!this.markerCluster) return;
             this.markerCluster.clearLayers();
@@ -2708,6 +2717,7 @@ function workspaceView(workspaceId) {
             if (f.rodzaj_transakcji?.length) n++;
             if (f.rodzaj_nieruchomosci?.length) n++;
             if (f.obreb?.length) n++;
+            if (f.obreb_key?.length) n++;
             if (f.miejscowosc?.length) n++;
             if (f.teryt_gminy?.length) n++;
             if (f.adres?.trim()) n++;
@@ -2739,6 +2749,7 @@ function workspaceView(workspaceId) {
                 miejscowosc: [],
                 teryt_gminy: [],
                 obreb: [],
+                obreb_key: [],
                 obreb_search: null,
                 adres: '',
                 cena_min: null, cena_max: null,
@@ -2882,10 +2893,25 @@ function workspaceView(workspaceId) {
                     this.uploadProgress.active = false;
                     return;
                 }
-                this.uploadProgress.importId = body.import_id;
-                this.uploadStatus = `Plik przesłany — parsing w tle (import #${body.import_id})`;
+                const importy = (body.import_ids && body.import_ids.length)
+                    ? body.import_ids : [body.import_id];
+                this.uploadProgress.importId = importy[0];
+                this.uploadStatus = body.zrodlo_archiwum
+                    ? `Paczka rozpakowana — ${importy.length} plik(ów) w kolejce`
+                    : `Plik przesłany — parsing w tle (import #${importy[0]})`;
+                // Serwer mógł zmienić tryb importu (paczka z kilkoma plikami nie
+                // może iść snapshotem) — operator musi to zobaczyć.
+                if (body.uwaga) this.uploadStatus += ` — ${body.uwaga}`;
                 await this.loadImports();
-                await this.pollImportStatus(body.import_id);
+                // Sekwencyjnie: zadania w tle też idą jedno po drugim, więc
+                // pasek pokazuje ten plik, który faktycznie jest przetwarzany.
+                for (let i = 0; i < importy.length; i++) {
+                    this.uploadProgress.importId = importy[i];
+                    if (importy.length > 1) {
+                        this.uploadStatus = `Plik ${i + 1} z ${importy.length} (import #${importy[i]})`;
+                    }
+                    await this.pollImportStatus(importy[i]);
+                }
             } catch (e) {
                 this.uploadStatus = `Błąd sieci: ${e.message || e}`;
                 this.uploadProgress.active = false;
@@ -3383,6 +3409,16 @@ function workspaceView(workspaceId) {
             if (f.obreb?.length) {
                 const v = f.obreb.slice(0, 2).join(', ') + (f.obreb.length > 2 ? ` +${f.obreb.length - 2}` : '');
                 push('obreb', 'Obręb', v);
+            }
+            if (f.obreb_key?.length) {
+                // Na chipie samo oznaczenie -- klucz z jednostką ewidencyjną
+                // jest wartością techniczną, nie treścią dla użytkownika.
+                const etykiety = f.obreb_key.map(k => {
+                    const opcja = (this.lookups.obreby || []).find(o => o.key === k);
+                    return opcja ? opcja.label : k.split('|').pop();
+                });
+                const v = etykiety.slice(0, 2).join(', ') + (etykiety.length > 2 ? ` +${etykiety.length - 2}` : '');
+                push('obreb_key', 'Obręb', v);
             }
             if (f.miejscowosc?.length) push('miejscowosc', 'Miejscowość', f.miejscowosc.join(', '));
             if (f.teryt_gminy?.length) push('teryt_gminy', 'TERYT', f.teryt_gminy.join(', '));
