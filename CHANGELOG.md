@@ -3,103 +3,94 @@
 Format: [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/),
 wersjonowanie [SemVer](https://semver.org/lang/pl/) z sufiksem przedpremierowym.
 
+## [0.2.0-beta.8] - 2026-09-17
+
+### Naprawione
+
+- Po wejściu na obszar roboczy widać informację o ładowaniu zamiast komunikatu
+  o braku wyników. Przy dużym zbiorze dane pojawiają się po kilkunastu sekundach.
+- Ograniczenie danych notariusza z wersji beta.5 objęło też domyślną treść
+  notatki. Dotyczy wyłącznie instancji sieciowej.
+- Opis przy zakładaniu obszaru roboczego zapowiadał tryb importu zmieniony
+  w poprzednim wydaniu.
+
+### Dodane
+
+- Pomiar odległości i warstwa punktów użyteczności (POI) w oknie mapy otwieranym
+  z tabeli - dotąd były tylko na dużej mapie. Kliknięcie w punkt mierzy do jego
+  pozycji i podpisuje pomiar nazwą punktu.
+
 ## [0.2.0-beta.7] - 2026-09-14
 
 ### Dodane
 
-- **Oznaczenia obrębów („B-42") działają od razu po instalacji.** Aplikacja ma
-  wbudowany słownik dla całej Polski - 377 powiatów, blisko 50 tysięcy obrębów -
-  więc nazwy pojawiają się same, także w bazie zaimportowanej z własnego pliku
-  GML. Wcześniej wymagało to osobnego pliku słownika obok bazy.
-- Bazy założone w starszych wersjach dostają oznaczenia przy pierwszym
-  uruchomieniu po aktualizacji; numer obrębu zostaje obok, więc wyszukiwanie
-  działa i po „B-42", i po „0042".
+- Oznaczenia obrębów („B-42") działają od razu po instalacji - aplikacja ma
+  wbudowany słownik dla całej Polski (377 powiatów, blisko 50 tysięcy obrębów).
+  Wcześniej wymagało to osobnego pliku obok bazy.
+- Bazy z wcześniejszych wersji dostają oznaczenia przy pierwszym uruchomieniu
+  po aktualizacji. Numer zostaje obok, więc wyszukiwanie działa w obu formach.
 
 ### Zmienione
 
-- **Własne poprawki mają pierwszeństwo.** Oznaczenie zmienione w ustawieniach
-  workspace'u nie zostanie nadpisane ani przez słownik wbudowany, ani przez
-  kolejny zrzut EGIB. Lista w panelu pokazuje, które nazwy pochodzą
-  z wbudowanego słownika, a które wpisano ręcznie.
+- Oznaczenie poprawione ręcznie w ustawieniach obszaru roboczego ma
+  pierwszeństwo i nie zostanie nadpisane przy aktualizacji.
 
 ## [0.2.0-beta.6] - 2026-09-14
 
 ### Naprawione
 
-- **Nazwisko notariusza wychodziło jeszcze jedną drogą.** Atrybuty każdej
-  działki, budynku i lokalu niosą kopię danych transakcji, więc w wersji
-  beta.5 pole było wyczyszczone w samej transakcji, ale zostawało
-  w szczegółach obiektów. Wyszło przy kontroli na danych produkcyjnych.
-  Dotyczyło wyłącznie instancji sieciowej z publicznym odczytem lub kontem
-  readonly; instalacji lokalnej nie dotyczy, bo tam i tak widać komplet danych.
+- Ograniczenie danych notariusza z wersji beta.5 objęło też szczegóły obiektów
+  transakcji. Dotyczy wyłącznie instancji sieciowej.
 
 ## [0.2.0-beta.5] - 2026-09-14
 
 ### Zmienione
 
-- **Nazwisko notariusza nie wychodzi do użytkownika sieciowego.** Przy
-  włączonym publicznym odczycie albo koncie readonly pole „Notariusz" jest
-  puste - w tabeli, w eksporcie CSV i w arkuszu XLSX. Numer repertorium
-  zostaje, bo identyfikuje akt, a osoby nie wskazuje. Zrzuty ekranu
-  w instrukcji, które pokazują realne transakcje, wymagają zalogowania.
-
-  **Instalacja lokalna działa bez zmian** - na własnym komputerze widzisz
-  komplet danych, bo nie ma tam przed kim ich chronić. Ograniczenie dotyczy
-  wyłącznie instancji wystawionej w sieci.
+- Na instancji wystawionej w sieci dane notariusza są pokazywane wyłącznie
+  administratorowi - w tabeli, w eksportach i w instrukcji. Numer repertorium
+  zostaje, bo identyfikuje akt, a nie osobę.
+- Instalacja na własnym komputerze działa bez zmian: widać komplet danych.
 
 ## [0.2.0-beta.4] - 2026-09-14
 
 ### Dodane
 
-- **Obręby rozróżniane jednoznacznie.** Numer obrębu jest unikalny tylko w ramach
-  jednostki ewidencyjnej, więc w mieście podzielonym na dzielnice jedna pozycja
-  katalogu („0024") reprezentowała kilka różnych obrębów, a filtr po niej zwracał
-  transakcje z kilku części miasta. Filtr używa teraz pary (jednostka, numer).
-- **Oznaczenia urzędowe obrębów** („B-24") obok numerów („0024"), wczytywane
-  z pliku `<nazwa>.obreby.csv` leżącego obok bazy. Wyszukiwarka rozumie obie
-  formy, także zapis bez separatora („b24"). Plik jedzie w paczce workspace'u,
-  waży kilkanaście kilobajtów i da się go poprawić ręcznie (arkusz albo edytor
-  w ustawieniach workspace'u).
-- **Lokale też mają obręb.** Identyfikator lokalu niesie go w tym samym miejscu
-  co identyfikator działki. Wcześniej transakcja obejmująca wyłącznie lokal nie
-  miała obrębu nigdzie i wypadała z filtrów oraz z katalogu.
-- **Import spakowanych GML-i.** Tam, gdzie wcześniej wchodził tylko `.gml`/`.xml`,
-  można wgrać archiwum `.zip` - także takie, w którym pliki nie mają rozszerzenia
-  (rozpoznawane po zawartości). Każdy plik z paczki to osobny import z własnym
-  paskiem postępu.
-- **Tryb publicznego odczytu** (`RCN_PUBLIC_READONLY=1`): gość bez logowania
-  ogląda dane, a administrator loguje się na `/login`. Uwaga: w tym trybie
-  strona pomocy jest dostępna publicznie.
+- Obręby rozróżniane jednoznacznie. Numer obrębu powtarza się między jednostkami
+  ewidencyjnymi, więc w mieście z dzielnicami jedna pozycja katalogu mieszała
+  kilka różnych obrębów. Filtr używa teraz pary (jednostka, numer).
+- Oznaczenia urzędowe obrębów („B-24") obok numerów („0024"), z pliku
+  `<nazwa>.obreby.csv` obok bazy. Wyszukiwarka rozumie obie formy, także zapis
+  bez separatora („b24"). Plik da się poprawić ręcznie.
+- Lokale też mają obręb - wcześniej transakcja obejmująca wyłącznie lokal
+  wypadała z filtrów i z katalogu.
+- Import spakowanych GML-i (`.zip`, także z plikami bez rozszerzenia). Każdy
+  plik z paczki to osobny import z własnym paskiem postępu.
+- Tryb publicznego odczytu (`RCN_PUBLIC_READONLY=1`): gość bez logowania ogląda
+  dane, administrator loguje się na `/login`. W tym trybie strona pomocy jest
+  dostępna publicznie.
 
 ### Zmienione
 
-- **Import domyślnie w trybie `delta`** także przy zakładaniu workspace'u
-  i przy wgrywaniu archiwum. Tryb `snapshot` wycofuje z bazy wszystko, czego nie
-  ma w importowanym pliku (w zakresie jego dat), więc przy kilku plikach każdy
-  kolejny kasował dorobek poprzedniego. Archiwum z więcej niż jednym plikiem
-  idzie `deltą` zawsze, z komunikatem.
-- **Sortowanie kolumny „Obręb"** po jednostce i numerze, nie po tekście
-  oznaczenia: „B-2" wypada teraz przed „B-10", a nie po nim.
-- **Wyszukiwanie po obrębie przegląda wszystkie obiekty transakcji.** Transakcja
-  z działkami w kilku obrębach była wcześniej znajdowana tylko pod jednym z nich.
+- Import domyślnie w trybie `delta`, także przy zakładaniu obszaru roboczego
+  i przy wgrywaniu archiwum. Archiwum z kilkoma plikami idzie `deltą` zawsze.
+- Sortowanie kolumny „Obręb" po jednostce i numerze, nie po tekście oznaczenia:
+  „B-2" wypada teraz przed „B-10".
+- Wyszukiwanie po obrębie przegląda wszystkie obiekty transakcji, nie tylko
+  pierwszy z nich.
 
 ### Naprawione
 
-- **Import fragmentu zbioru nie ukryje reszty bazy.** Wgranie pliku obejmującego
+- Import fragmentu zbioru nie ukryje reszty bazy. Wgranie pliku obejmującego
   wycinek okresu w trybie `snapshot` potrafiło oznaczyć większość bazy jako
-  wycofaną z portalu - dane pozostawały na dysku, ale znikały z tabeli i z mapy.
-  Import odmawia teraz wycofania nieproporcjonalnego do zawartości pliku, zakres
-  snapshotu liczy z percentyli (jedna błędna data nie rozciąga go na stulecia),
-  a każde wycofanie zapisuje, który import je spowodował.
-- **Nieudany upload sprząta po sobie** - nie zostaje pusty workspace blokujący
-  nazwę przy kolejnej próbie.
+  wycofaną z portalu - dane zostawały na dysku, ale znikały z tabeli i z mapy.
+  Import odmawia teraz wycofania nieproporcjonalnego do zawartości pliku.
+- Nieudany upload sprząta po sobie i nie blokuje nazwy przy kolejnej próbie.
 
 ### Migracja danych
 
-Wersje schematu v9, v10 i v11 wykonują się **automatycznie przy pierwszym
-uruchomieniu** i nie wymagają działania użytkownika. Przy bardzo dużych zbiorach
-(setki workspace'ów albo baza metropolii) pierwsze otwarcie listy potrwa dłużej
-niż zwykle - to jednorazowy koszt uzupełnienia numerów obrębów.
+Nowe wersje schematu wykonują się automatycznie przy pierwszym uruchomieniu.
+Przy bardzo dużych zbiorach pierwsze otwarcie listy potrwa dłużej niż zwykle -
+to jednorazowy koszt.
 
 ## [0.2.0-beta.3] - 2026-08-06
 

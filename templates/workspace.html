@@ -152,16 +152,16 @@
         <div id="map"></div>
 
         {# Miarka -- pomiar odległości: klik punkt A (np. POI), klik punkt B (np. transakcja) #}
-        <div class="wb-measure-ctrl" @keydown.escape.window="if (measureActive) wbToggleMeasure()">
-            <button class="wb-measure-btn" :class="{'active': measureActive}"
+        <div class="wb-measure-ctrl" @keydown.escape.window="if (measure.active) wbToggleMeasure()">
+            <button class="wb-measure-btn" :class="{'active': measure.active}"
                     @click="wbToggleMeasure()"
                     title="Pomiar odległości: kliknij dwa punkty na mapie (np. szkołę z warstwy POI i nieruchomość)">
                 📏 Zmierz odległość
             </button>
-            <button class="wb-measure-btn" x-show="measureHasResult" x-cloak
+            <button class="wb-measure-btn" x-show="measure.hasResult" x-cloak
                     @click="wbClearMeasure()" title="Usuń pomiary z mapy">✕ Wyczyść pomiar</button>
-            <span class="wb-measure-hint" x-show="measureActive" x-cloak
-                  x-text="measurePending ? 'Teraz kliknij punkt docelowy' : 'Kliknij pierwszy punkt (np. POI lub transakcję)'"></span>
+            <span class="wb-measure-hint" x-show="measure.active" x-cloak
+                  x-text="measure.pending ? 'Teraz kliknij punkt docelowy' : 'Kliknij pierwszy punkt (np. POI lub transakcję)'"></span>
         </div>
 
         {# PR8 fix2: plansza informacyjna gdy zoom <14 (mapa nie pokazuje markerow
@@ -462,7 +462,34 @@
                                 </label>
                             </div>
                         </template>
+                        {# POI z pliku <nazwa>.poi.sqlite -- sekcja pojawia się tylko,
+                           gdy workspace ten plik ma (2026-09-17). #}
+                        <template x-if="mapModal.hasPoi">
+                            <div class="wb-layer-section">
+                                <div class="wb-layer-section-title">Punkty użyteczności</div>
+                                <label class="wb-layer-toggle">
+                                    <input type="checkbox" x-model="mapModal.layerFlags.poi" @change="toggleModalLayer('poi')">
+                                    <span class="dot" style="background: #0ea5e9"></span>
+                                    <span class="wb-layer-toggle-label">POI — szkoły, sklepy, przystanki…</span>
+                                </label>
+                                <div class="wb-layer-attribution" x-show="mapModal.layerFlags.poi" x-cloak
+                                     x-text="mapModal.poiAttribution || '© autorzy OpenStreetMap, licencja ODbL'"></div>
+                            </div>
+                        </template>
                     </div>
+                </div>
+                {# Miarka w oknie transakcji -- ta sama mechanika co na mapie głównej
+                   (`_measureClick` z zakresem 'modal'), osobny stan pomiarów. #}
+                <div class="wb-modal-measure" @keydown.escape.window="if (mapModal.measure.active) wbToggleMeasure('modal')">
+                    <button class="btn-ghost btn-sm" :class="mapModal.measure.active ? 'active' : ''"
+                            @click="wbToggleMeasure('modal')"
+                            title="Pomiar odległości: kliknij dwa punkty na mapie (np. POI i nieruchomość)">
+                        📏 <span>Zmierz</span>
+                    </button>
+                    <button class="btn-ghost btn-sm" x-show="mapModal.measure.hasResult" x-cloak
+                            @click="wbClearMeasure('modal')" title="Usuń pomiary z mapy">✕</button>
+                    <span class="wb-measure-hint" x-show="mapModal.measure.active" x-cloak
+                          x-text="mapModal.measure.pending ? 'Teraz kliknij punkt docelowy' : 'Kliknij pierwszy punkt (np. POI lub transakcję)'"></span>
                 </div>
                 <button class="close-btn" @click="wbCloseMapModal()" title="Zamknij" aria-label="Zamknij modal mapy">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">

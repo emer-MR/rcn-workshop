@@ -110,6 +110,39 @@ def test_poi_geojson_layer_endpoint(client, auth, tmp_data_dir):
     assert f["properties"] == {"kind": "szkola", "name": "SP nr 1"}
 
 
+def test_poi_geojson_bbox_zaweza_wycinek(client, auth, tmp_data_dir):
+    """Mapa w oknie transakcji pyta o wycinek, nie o cały powiat (2026-09-17).
+
+    Widok to kilkaset metrów, a plik POI metropolii ma kilkanaście tysięcy
+    punktów -- bez `bbox` każde przesunięcie mapki ciągnęłoby całość.
+    """
+    wdir = tmp_data_dir / "workspaces" / "LodzBbox"
+    wdir.mkdir(parents=True)
+    _make_workspace_sqlite(wdir / "LodzBbox.sqlite")
+    _make_poi_with_data(wdir / "LodzBbox.poi.sqlite")   # szkoła 19.46/51.76, apteka 19.45/51.75
+
+    r = client.get("/api/layers/workspaces/LodzBbox/poi.geojson"
+                   "?bbox=19.455,51.755,19.47,51.77", auth=auth)
+    assert r.status_code == 200, r.text
+    dane = r.json()
+    assert [f["properties"]["kind"] for f in dane["features"]] == ["szkola"]
+    # Atrybucja ODbL jedzie z każdą odpowiedzią, także wycinkiem.
+    assert "OpenStreetMap" in dane["attribution"]
+
+    # Bez bbox -- zachowanie mapy głównej, czyli całość.
+    assert len(client.get("/api/layers/workspaces/LodzBbox/poi.geojson",
+                          auth=auth).json()["features"]) == 2
+
+
+def test_poi_geojson_bbox_niepoprawny_daje_400(client, auth, tmp_data_dir):
+    wdir = tmp_data_dir / "workspaces" / "LodzBbox2"
+    wdir.mkdir(parents=True)
+    _make_workspace_sqlite(wdir / "LodzBbox2.sqlite")
+    _make_poi_with_data(wdir / "LodzBbox2.poi.sqlite")
+    r = client.get("/api/layers/workspaces/LodzBbox2/poi.geojson?bbox=19.4,51.7", auth=auth)
+    assert r.status_code == 400
+
+
 def test_poi_geojson_404_without_file(client, auth, tmp_data_dir):
     wdir = tmp_data_dir / "workspaces" / "Sieradz2"
     wdir.mkdir(parents=True)

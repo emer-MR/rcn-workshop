@@ -632,6 +632,9 @@ table.data .col-note:hover .no-note { opacity: 1; color: var(--primary); }
 }
 #map.wb-measuring { cursor: crosshair; }
 #map.wb-measuring .leaflet-interactive { cursor: crosshair; }
+/* Ta sama miarka w oknie transakcji (widok tabeli). */
+#wb-modal-map.wb-measuring { cursor: crosshair; }
+#wb-modal-map.wb-measuring .leaflet-interactive { cursor: crosshair; }
 .wb-measure-tip {
     background: #9a3412;
     color: #fff;
@@ -1183,6 +1186,33 @@ tr.import-row.status-failed td     { background: #fecaca; }
 @keyframes shimmer {
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+}
+
+/* Komunikat nad skeletonem: co się dzieje i ile to może potrwać (2026-09-17).
+   Shimmer sam w sobie nie odpowiadał na pytanie „zawiesiło się czy liczy?". */
+.wb-loading-note {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-neutral-50);
+    border-bottom: 1px solid var(--color-neutral-100);
+    font-size: 0.86rem;
+    color: var(--text);
+}
+.wb-loading-note-sub {
+    display: block;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+.wb-loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--color-neutral-200);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: wb-spin 0.8s linear infinite;
+    flex-shrink: 0;
 }
 
 /* ================================================================
@@ -2181,6 +2211,25 @@ tr.import-row.status-failed td     { background: #fecaca; }
 .wb-modal-layers {
     position: relative;
     flex-shrink: 0;
+}
+/* Miarka w nagłówku okna transakcji (2026-09-17) -- obok przycisku „Warstwy”,
+   bo pływające przyciski jak na mapie głównej zasłaniałyby małą mapkę. */
+.wb-modal-measure {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+.wb-modal-measure .btn-ghost.active {
+    background: #9a3412;
+    border-color: #9a3412;
+    color: #fff;
+}
+/* Atrybucja ODbL przy warstwie POI -- wymóg licencji, nie ozdoba. */
+.wb-layer-attribution {
+    padding: 2px var(--space-2) 6px;
+    font-size: 0.72rem;
+    color: var(--muted);
 }
 .wb-modal-layers-menu {
     position: absolute;

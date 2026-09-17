@@ -50,6 +50,9 @@ templates.env.globals["public_readonly"] = settings.public_readonly
 templates.env.globals["app_version"] = __version__
 templates.env.globals["is_beta"] = IS_BETA
 templates.env.globals["download_url"] = settings.download_url
+# Instrukcja INSTALACJI (PDF) -- link na dole splasha, dla kogoś, kto dopiero
+# zaczyna. Instrukcja OBSŁUGI to osobna strona (`/instrukcja`).
+templates.env.globals["install_guide_url"] = settings.install_guide_url
 # Kontakt do zgłaszania błędów (RCN_CONTACT_EMAIL). Gotowy mailto z tematem
 # niosącym numer wersji -- zgłoszenie zawsze mówi, na czym powstało.
 templates.env.globals["contact_email"] = settings.contact_email

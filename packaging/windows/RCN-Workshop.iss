@@ -25,7 +25,7 @@
 
 #define AppName "RCN Workshop"
 ; Synchronizowac z app/version.py (tam jest zrodlo prawdy).
-#define AppVersion "0.2.0-beta.7"
+#define AppVersion "0.2.0-beta.8"
 #define AppPublisher "Michal Raj"
 #define AppExeName "RCN-Workshop.exe"
 ; Katalog z wynikiem PyInstallera (wzgledem tego .iss: ..\..\dist\RCN-Workshop)

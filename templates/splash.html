@@ -51,19 +51,44 @@
             </div>
         </div>
 
+        {# Kafelki akcji w kolejności, w jakiej potrzebuje ich ktoś nowy:
+           wejście do aplikacji -> pobranie -> jak to zainstalować -> opinia.
+           Grid `auto-fit` radzi sobie z każdą liczbą kafelków, bo trzy z nich
+           zależą od zmiennych env (ankieta, instalator, instrukcja). #}
         <div class="splash-cta">
-            {% if public_readonly %}
-            <a href="/workspaces" class="splash-btn-primary">Przejdź do aplikacji</a>
-            {% else %}
-            <a href="/workspaces" class="splash-btn-primary">Zaloguj się i przejdź do aplikacji</a>
-            {% endif %}
-            <a href="/instrukcja" class="splash-btn-secondary">📖 Instrukcja obsługi</a>
-            {% if survey_url %}
-            <a href="/ankieta" target="_blank" rel="noopener" class="splash-btn-secondary">💬 Podziel się opinią</a>
-            {% endif %}
-            {% if download_url %}
-            <a href="/pobierz" class="splash-btn-secondary">⬇ Pobierz wersję na komputer{% if is_beta %} (beta){% endif %}</a>
-            {% endif %}
+            <div class="splash-tiles">
+                <a href="/workspaces" class="splash-tile splash-tile-primary">
+                    <span class="splash-tile-icon" aria-hidden="true">🗺</span>
+                    {% if public_readonly %}
+                    <span class="splash-tile-title">Przejdź do aplikacji</span>
+                    <span class="splash-tile-desc">Tabela, mapa, filtry i eksporty</span>
+                    {% else %}
+                    <span class="splash-tile-title">Zaloguj się</span>
+                    <span class="splash-tile-desc">Tabela, mapa, filtry i eksporty</span>
+                    {% endif %}
+                </a>
+                {% if download_url %}
+                <a href="/pobierz" class="splash-tile">
+                    <span class="splash-tile-icon" aria-hidden="true">⬇</span>
+                    <span class="splash-tile-title">Pobierz na komputer</span>
+                    <span class="splash-tile-desc">Wersja dla Windows{% if is_beta %} (beta){% endif %}</span>
+                </a>
+                {% endif %}
+                {% if install_guide_url %}
+                <a href="{{ install_guide_url }}" target="_blank" rel="noopener" class="splash-tile">
+                    <span class="splash-tile-icon" aria-hidden="true">📄</span>
+                    <span class="splash-tile-title">Instrukcja instalacji</span>
+                    <span class="splash-tile-desc">PDF, krok po kroku</span>
+                </a>
+                {% endif %}
+                {% if survey_url %}
+                <a href="/ankieta" target="_blank" rel="noopener" class="splash-tile">
+                    <span class="splash-tile-icon" aria-hidden="true">💬</span>
+                    <span class="splash-tile-title">Podziel się opinią</span>
+                    <span class="splash-tile-desc">Krótka ankieta</span>
+                </a>
+                {% endif %}
+            </div>
             {% if public_readonly %}
             <p class="splash-note">Przeglądanie danych, mapa, filtry i eksporty są otwarte dla wszystkich, bez logowania.
                Wgrywanie plików i edycja notatek wymagają konta — <a href="/login">zaloguj się</a>.</p>
@@ -156,6 +181,51 @@
     flex-direction: column;
     align-items: center;
     gap: 0.6rem;
+}
+.splash-tiles {
+    display: grid;
+    /* auto-fit: przy trzech kafelkach rozkładają się równo, przy czterech
+       schodzą do 2x2 dopiero, gdy zabraknie miejsca. */
+    /* 140px: zmierzone na wyrenderowanej stronie -- kontener kafelkow ma 300px
+       przy ekranie 430px, wiec 2*140+12 mieszczy dwie kolumny, a ponizej ~400px
+       auto-fit sam schodzi do jednej. */
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    width: 100%;
+}
+.splash-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    padding: 1.1rem 0.9rem;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #1f4e79;
+    text-align: center;
+    transition: all 0.15s ease;
+}
+.splash-tile:hover {
+    border-color: #1f4e79;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(30, 58, 138, 0.12);
+}
+.splash-tile-icon { font-size: 1.5rem; line-height: 1; }
+.splash-tile-title { font-weight: 600; font-size: 0.95rem; }
+.splash-tile-desc { font-size: 0.78rem; color: #64748b; line-height: 1.35; }
+.splash-tile-primary {
+    background: #1f4e79;
+    border-color: #1f4e79;
+    color: white;
+    box-shadow: 0 2px 6px rgba(30, 58, 138, 0.2);
+}
+.splash-tile-primary:hover { background: #18405f; border-color: #18405f; }
+.splash-tile-primary .splash-tile-desc { color: #dbe7f3; }
+@media (max-width: 360px) {
+    .splash-tiles { grid-template-columns: 1fr; }
 }
 .splash-btn-primary {
     display: inline-block;

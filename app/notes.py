@@ -20,6 +20,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.auth import require_admin, require_auth
+from app.prywatnosc import bez_notariusza_w_notatce, ukrywac_notariusza
 from app.workspaces import _require_workspace, _workspace_db
 from rcn_core.ingest import open_workspace
 
@@ -43,9 +44,10 @@ class NoteSaveRequest(BaseModel):
 def get_note(
     workspace_id: str,
     id_rcn: str,
-    _: str = Depends(require_auth),
+    ctx=Depends(require_auth),
 ) -> NoteResponse:
     _require_workspace(workspace_id)
+    ukryj = ukrywac_notariusza(ctx)
     conn = open_workspace(_workspace_db(workspace_id))
     try:
         existing = conn.execute(
@@ -53,9 +55,15 @@ def get_note(
             (id_rcn,),
         ).fetchone()
         if existing:
+            # Notatka zapisana wcześniej może być seedem przyjętym „jak był",
+            # czyli nieść wiersz z nazwiskiem -- poprawienie samego generatora
+            # nie sięgnęłoby tego, co już leży w bazie.
+            zapisana = existing["body"]
+            if ukryj:
+                zapisana = bez_notariusza_w_notatce(zapisana)
             return NoteResponse(
                 id_rcn=id_rcn,
-                body=existing["body"],
+                body=zapisana,
                 exists=True,
                 is_seed=False,
                 created_at=existing["created_at"],
@@ -68,7 +76,7 @@ def get_note(
         if tx_row is None:
             raise HTTPException(status_code=404, detail="Transakcja nie istnieje")
 
-        seed = _render_seed(conn, dict(tx_row))
+        seed = _render_seed(conn, dict(tx_row), ukryj_notariusza=ukryj)
         return NoteResponse(id_rcn=id_rcn, body=seed, exists=False, is_seed=True)
     finally:
         conn.close()
@@ -138,7 +146,14 @@ def delete_note(
         conn.close()
 
 
-def _render_seed(conn: sqlite3.Connection, tx: dict) -> str:
+def _render_seed(conn: sqlite3.Connection, tx: dict, ukryj_notariusza: bool = False) -> str:
+    """Domyślna treść notatki złożona z faktów o transakcji.
+
+    `ukryj_notariusza` = rola bez uprawnień admina (gość instancji publicznej,
+    konto readonly). Wtedy wiersz „Twórca dokumentu" w ogóle nie powstaje --
+    seed jest zwykłą odpowiedzią API, więc podlega tej samej zasadzie co
+    `details` i eksporty: maskowanie po stronie serwera, patrz `app/prywatnosc.py`.
+    """
     id_rcn = tx["id_rcn"]
     plots = conn.execute(
         "SELECT identyfikator_dzialki, obreb, miejscowosc, adres, powierzchnia_m2, cena_brutto "
@@ -168,7 +183,7 @@ def _render_seed(conn: sqlite3.Connection, tx: dict) -> str:
     lines.append(f"- **Sprzedający:** {tx.get('strona_sprzedajaca') or '—'}")
     lines.append(f"- **Kupujący:** {tx.get('strona_kupujaca') or '—'}")
     lines.append(f"- **Dokument:** {tx.get('dokument') or '—'}")
-    if tx.get("tworca_dokumentu"):
+    if tx.get("tworca_dokumentu") and not ukryj_notariusza:
         lines.append(f"- **Twórca dokumentu:** {tx['tworca_dokumentu']}")
     lines.append("")
 

@@ -191,6 +191,50 @@ def test_konto_readonly_tez_nie_widzi(tmp_path, monkeypatch):
         shutil.rmtree(data, ignore_errors=True)
 
 
+def test_gosc_nie_dostaje_nazwiska_w_seedzie_notatki(client):
+    """Ikona notatki przy dacie pobiera domyślną treść zbudowaną z danych transakcji.
+
+    To trzecia droga, którą nazwisko wychodziło (zgłoszenie 2026-09-17):
+    szczegóły transakcji były już maskowane, a seed notatki -- nie.
+    """
+    dane = client.get("/api/workspaces/test-ws/transactions/note/RCN-1").json()
+    assert dane["is_seed"] is True
+    assert NOTARIUSZ not in dane["body"]
+    assert "Twórca dokumentu" not in dane["body"]
+    # Repertorium zostaje -- identyfikuje akt, nie osobę.
+    assert REPERTORIUM in dane["body"]
+
+
+def test_admin_dostaje_nazwisko_w_seedzie_notatki(client):
+    dane = client.get("/api/workspaces/test-ws/transactions/note/RCN-1", auth=ADMIN).json()
+    assert NOTARIUSZ in dane["body"]
+
+
+def test_zapisana_notatka_z_seeda_tez_jest_czyszczona(client):
+    """Admin mógł zapisać seed „jak był" -- wtedy nazwisko leży już w bazie.
+
+    Poprawienie samego generatora by tego nie sięgnęło, więc odczyt notatki
+    przez gościa zdejmuje wiersz z szablonu. Uwagi własne operatora zostają
+    nietknięte -- filtrujemy znany wiersz, nie zgadujemy nazwisk w tekście.
+    """
+    seed = client.get("/api/workspaces/test-ws/transactions/note/RCN-1", auth=ADMIN).json()["body"]
+    assert NOTARIUSZ in seed
+    zapis = client.put(
+        "/api/workspaces/test-ws/transactions/note/RCN-1",
+        json={"body": seed + "\nMoja uwaga: działka przy głównej drodze.\n"},
+        auth=ADMIN,
+    )
+    assert zapis.status_code == 200
+
+    dane = client.get("/api/workspaces/test-ws/transactions/note/RCN-1").json()
+    assert dane["exists"] is True
+    assert NOTARIUSZ not in dane["body"]
+    assert "Moja uwaga: działka przy głównej drodze." in dane["body"]
+    # Admin dalej widzi całość, łącznie z wierszem z szablonu.
+    admin = client.get("/api/workspaces/test-ws/transactions/note/RCN-1", auth=ADMIN).json()
+    assert NOTARIUSZ in admin["body"]
+
+
 def test_gosc_nie_widzi_zrzutow_z_danymi_na_pomocy(client):
     """`/help` jest pod require_auth, które w trybie publicznym przepuszcza gościa.
 

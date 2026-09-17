@@ -315,8 +315,10 @@
             </tr>
         </tbody>
     </template>
-    {# PR9: empty state -- konkretna sugestia akcji zamiast samej informacji #}
-    <tbody x-show="!loadingQuery && queryResult.items.length === 0">
+    {# PR9: empty state -- konkretna sugestia akcji zamiast samej informacji.
+       `!booting` dołożone 2026-09-17: przed pierwszym zapytaniem wynik jest pusty,
+       bo zapytania jeszcze nie było -- to nie to samo, co „nic nie znaleziono". #}
+    <tbody x-show="!booting && !loadingQuery && queryResult.items.length === 0">
         <tr>
             <td colspan="10" style="padding: 0;">
                 <div class="wb-empty-state">
@@ -345,9 +347,22 @@
     </tbody>
 </table>
 
+{# Komunikat na czas pierwszego ładowania (2026-09-17). Sam shimmer nie mówił,
+   ile to potrwa, a przy metropolii (katalog obrębów + pierwsze zapytanie) idzie
+   to kilkanaście sekund -- user odświeżał stronę i zaczynał od nowa. #}
+<div x-show="booting || loadingQuery" x-cloak class="wb-loading-note" role="status" aria-live="polite">
+    <span class="wb-loading-spinner" aria-hidden="true"></span>
+    <span>
+        <strong>Trwa ładowanie danych…</strong>
+        <span class="wb-loading-note-sub">
+            Przy dużym zbiorze może to potrwać nawet kilkanaście sekund. Nie odświeżaj strony.
+        </span>
+    </span>
+</div>
+
 {# PR9: loading skeleton -- shimmer rows zamiast spinera (mniej irytujace,
    user widzi gdzie pojawia sie dane) #}
-<div x-show="loadingQuery" class="wb-skel-table" aria-label="Wczytywanie danych…">
+<div x-show="booting || loadingQuery" class="wb-skel-table" aria-label="Wczytywanie danych…">
     <template x-for="i in 8" :key="i">
         <div class="wb-skel-row">
             <div class="wb-skel" style="width: 18px;"></div>

@@ -14,15 +14,18 @@ Kto widzi: wyłącznie roli `admin` (właściciel instancji, tryb desktopowy na
 loopbacku, zalogowany operator). Gość i konto readonly dostają puste pole,
 a interfejs po prostu nie rysuje wtedy wiersza „Notariusz".
 
-Drogi, którymi to pole wychodziło (stan 2026-09-14):
+Drogi, którymi to pole wychodziło (stan 2026-09-17):
 - `GET /transactions/details/...` -- kolumna `tworca_dokumentu` ORAZ kopia
   w `extra` (surowe atrybuty z GML, klucz „twórca dokumentu"),
 - `export.csv` -- kolumna `tworca_dokumentu`,
-- `export.xlsx` -- kolumna „Notariusz" budowana z atrybutów.
+- `export.xlsx` -- kolumna „Notariusz" budowana z atrybutów,
+- `GET /transactions/note/...` -- **seed notatki** (markdown budowany z danych
+  transakcji) miał wiersz „Twórca dokumentu"; zgłoszenie 2026-09-17.
 Warstwy GeoJSON i kontekst wtyczek notariusza nie dostają (sprawdzone).
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 # Nazwa kolumny w tabeli `transakcje` i klucz w `attributes_json` -- to samo
@@ -61,3 +64,31 @@ def bez_notariusza(dane: dict) -> dict:
 
 def bez_notariusza_w_wierszach(wiersze: list[dict]) -> list[dict]:
     return [bez_notariusza(w) for w in wiersze]
+
+
+# Wiersz seeda notatki: „- **Twórca dokumentu:** NOTARIUSZ ...". Wzorzec bierze
+# obie pisownie (z polskimi znakami i bez), bo seed jest budowany z tego samego
+# pola, które w starszych plikach bywa zapisane różnie.
+_WIERSZ_NOTARIUSZA = re.compile(
+    r"^[ \t]*[-*][ \t]*\*\*[ \t]*(?:Twórca|Tworca)[ \t]+dokumentu[ \t]*:?\*\*.*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def bez_notariusza_w_notatce(tekst: str) -> str:
+    """Treść notatki bez wiersza „Twórca dokumentu" z seeda.
+
+    Notatka to markdown pisany przez operatora, ale jej wersja domyślna (seed)
+    jest generowana z danych transakcji i do 2026-09-17 niosła nazwisko. Rzecz
+    dotyczy dwóch przypadków naraz: seeda renderowanego w locie ORAZ notatki,
+    którą admin zapisał „tak jak była" -- ta druga siedzi już w bazie, więc
+    samo poprawienie generatora by nie wystarczyło.
+
+    Ograniczenie, świadome: filtrujemy WIERSZ ZE ZNANEGO SZABLONU, nie dowolny
+    tekst. Nazwisko wpisane przez operatora w zdaniu („rozmawiałem z mec. X")
+    zostaje -- to treść własna notatki, a zgadywanie nazwisk w wolnym tekście
+    dawałoby złudzenie ochrony i psuło notatki.
+    """
+    if not tekst:
+        return tekst
+    return _WIERSZ_NOTARIUSZA.sub("", tekst)

@@ -319,12 +319,15 @@ def custom_workspace_layer(
 def workspace_poi_layer(
     workspace_id: str,
     limit: int = Query(20000, ge=1, le=50000),
+    bbox: str | None = Query(None, description="min_lon,min_lat,max_lon,max_lat (EPSG:4326)"),
     _: str = Depends(require_auth),
 ):
     """Warstwa POI z pliku `<nazwa>.poi.sqlite` w folderze workspace'a
     (generowanego przez `rcn poi`, model folder=komplet). Punkty są nieliczne
-    (rzędu tysięcy na powiat) -- zwracamy całość bez bbox. Dane OSM, licencja
-    ODbL -- pole `attribution` MUSI trafić do UI warstwy."""
+    (rzędu tysięcy na powiat), więc bez `bbox` zwracamy całość -- tak korzysta
+    z tego mapa główna. `bbox` jest dla mapy w oknie transakcji: tam widok to
+    kilkaset metrów, a ściąganie POI całego powiatu byłoby marnotrawstwem.
+    Dane OSM, licencja ODbL -- pole `attribution` MUSI trafić do UI warstwy."""
     import sqlite3
 
     from app.workspaces import _poi_sqlite
@@ -339,11 +342,20 @@ def workspace_poi_layer(
         raise HTTPException(status_code=500, detail=f"Nie można otworzyć pliku POI: {exc}")
     try:
         try:
-            rows = conn.execute(
-                "SELECT id, kind, name, lon, lat FROM poi "
-                "WHERE lon IS NOT NULL AND lat IS NOT NULL LIMIT ?",
-                (limit + 1,),
-            ).fetchall()
+            if bbox:
+                min_lon, min_lat, max_lon, max_lat = _parse_bbox(bbox)
+                rows = conn.execute(
+                    "SELECT id, kind, name, lon, lat FROM poi "
+                    "WHERE lon IS NOT NULL AND lat IS NOT NULL "
+                    "AND lon BETWEEN ? AND ? AND lat BETWEEN ? AND ? LIMIT ?",
+                    (min_lon, max_lon, min_lat, max_lat, limit + 1),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT id, kind, name, lon, lat FROM poi "
+                    "WHERE lon IS NOT NULL AND lat IS NOT NULL LIMIT ?",
+                    (limit + 1,),
+                ).fetchall()
             meta = dict(conn.execute("SELECT key, value FROM poi_meta").fetchall())
         except sqlite3.Error as exc:
             raise HTTPException(status_code=500, detail=f"Plik POI nieczytelny: {exc}")

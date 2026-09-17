@@ -252,7 +252,10 @@
                         </li>
                     </template>
                 </ul>
-                <small class="muted">Wszystkie zostaną zaimportowane w trybie <code>snapshot</code> (w bazie oznaczymy transakcje wycofane z portalu w zakresie dat pliku).</small>
+                {# Tryb zmieniony na `delta` 2026-09-14 (POST /new) -- ten opis został
+                   przy starym zachowaniu i obiecywał wycofywanie, którego nie ma. #}
+                <small class="muted">Wszystkie zostaną zaimportowane w trybie <code>delta</code> —
+                    dane z plików dopisują się do bazy, nic nie jest wycofywane.</small>
             </fieldset>
 
             <fieldset class="create-ws-section">

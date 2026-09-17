@@ -60,6 +60,13 @@ class Settings:
     # Jak survey_url: adres w env, nie w kodzie (repo idzie na public,
     # a operator instancji może chcieć własny kanał zgłoszeń).
     contact_email: str | None
+    # Opcjonalny link do instrukcji INSTALACJI (RCN_INSTALL_GUIDE_URL) -- PDF
+    # krok po kroku dla kogoś, kto dopiero pobiera aplikację. Jak download_url:
+    # adres w env, nie w kodzie. Plik leży obok instalatorów na serwerze i NIE
+    # jedzie w repo publicznym (zawiera adres instancji, który blokuje
+    # sanity-scan eksportu). Nieustawiony => link się nie renderuje, więc
+    # w trybie desktopowym nie ma martwego odnośnika.
+    install_guide_url: str | None
 
     @property
     def max_upload_bytes(self) -> int | None:
@@ -123,6 +130,7 @@ def load_settings() -> Settings:
         test_warning=os.environ.get("RCN_TEST_WARNING") == "1",
         download_url=os.environ.get("RCN_DOWNLOAD_URL") or None,
         contact_email=os.environ.get("RCN_CONTACT_EMAIL") or None,
+        install_guide_url=os.environ.get("RCN_INSTALL_GUIDE_URL") or None,
     )
 
 

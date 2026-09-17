@@ -14,6 +14,6 @@ w stringu włącza `IS_BETA` -- badge w UI i domyślne ostrzeżenie w desktopie.
 Wydanie stabilne = usunięcie sufiksu, IS_BETA gaśnie samo.
 """
 
-__version__ = "0.2.0-beta.7"
+__version__ = "0.2.0-beta.8"
 
 IS_BETA = any(tag in __version__ for tag in ("alpha", "beta", "rc"))

@@ -106,6 +106,12 @@ function workspaceView(workspaceId) {
             loading: false,
             layerFlags: {},
             filterScope: 'all',
+            // POI i miarka jak na mapie głównej (2026-09-17) -- w widoku tabeli
+            // to jedyna mapa, jaką user ma pod ręką, a odległość do szkoły czy
+            // przystanku liczy się właśnie przy pojedynczej transakcji.
+            hasPoi: false,
+            poiAttribution: '',
+            measure: { active: false, pending: null, layer: null, hasResult: false, lastLayerClick: 0 },
         },
         // Modal "Warstwy GPKG" -- lista custom layers + add/delete (admin only).
         layersAdminOpen: false,
@@ -161,6 +167,13 @@ function workspaceView(workspaceId) {
         queryResult: { total: 0, items: [] },
         geojson: { features: [], capped: false, limit: 10000 },
         loadingQuery: false,
+        // Cały boot() -- od wejścia na stronę do pierwszych danych w tabeli.
+        // `loadingQuery` obejmuje tylko samo zapytanie, a przed nim idą jeszcze
+        // loadInfo/loadLookups/loadCustomLayers; katalog obrębów metropolii to
+        // kilkanaście sekund. Bez tej flagi tabela pokazywała w tym czasie
+        // „Brak transakcji spełniających kryteria" -- czyli komunikat o pustym
+        // wyniku dla zapytania, które jeszcze nie poszło (zgłoszenie 2026-09-17).
+        booting: true,
         selected: null,
 
         selectedIds: new Set(),
@@ -206,11 +219,15 @@ function workspaceView(workspaceId) {
         // transakcji) -> linia z odległością. Pomiary zostają po wyjściu z trybu
         // (czyści „Wyczyść"). Decyzja 2026-06-11: miarka zamiast automatycznych
         // linii koszyk->POI (te robiły pajęczynę).
-        measureActive: false,
-        measurePending: null,        // {latlng, label} pierwszego kliknięcia
-        measureLayer: null,          // L.featureGroup z pomiarami
-        measureHasResult: false,
-        _measureLastLayerClick: 0,   // dedup: klik w marker NIE ma też liczyć się jako klik w mapę
+        // Stan pomiaru mapy głównej. Mapa w oknie transakcji ma własny,
+        // o tym samym kształcie (`mapModal.measure`) -- patrz `_measureState`.
+        measure: {
+            active: false,
+            pending: null,        // {latlng, label, marker} pierwszego kliknięcia
+            layer: null,          // L.featureGroup z pomiarami
+            hasResult: false,
+            lastLayerClick: 0,    // dedup: klik w marker NIE ma też liczyć się jako klik w mapę
+        },
 
         async boot() {
             // PR4: odtwórz stan zwinięcia sidebara z localStorage
@@ -255,14 +272,24 @@ function workspaceView(workspaceId) {
                 // Załaduj minimum: info (lekkie, niezguardowane), żeby header
                 // pokazał nazwę workspace.
                 try { await this.loadInfo(); } catch {}
+                // Overlay „workspace zajęty" mówi, co się dzieje -- komunikat
+                // ładowania byłby wtedy drugim, sprzecznym komunikatem.
+                this.booting = false;
                 return;
             }
-            await this.loadInfo();
-            await this.loadLookups();
-            await this.loadCustomLayers();
-            this.wbBindDrawerDrag();
-            this.setupMap();
-            await this.runQuery();
+            // finally, nie zwykłe przypisanie: gdy któryś krok padnie (np. 423
+            // albo zerwana sieć), tabela ma wrócić do normalnego stanu zamiast
+            // zostać na zawsze z komunikatem „trwa ładowanie".
+            try {
+                await this.loadInfo();
+                await this.loadLookups();
+                await this.loadCustomLayers();
+                this.wbBindDrawerDrag();
+                this.setupMap();
+                await this.runQuery();
+            } finally {
+                this.booting = false;
+            }
             await this.loadImports();
         },
 
@@ -402,6 +429,11 @@ function workspaceView(workspaceId) {
             for (const cl of (this.customLayers || [])) {
                 flags[`custom_${cl.slug}`] = true;
             }
+            // POI domyślnie WYŁĄCZONE, tak jak na mapie głównej -- w centrum
+            // miasta punkty przykryłyby transakcję, o którą chodzi.
+            // `overlays.poi` powstaje w setupMap tylko gdy workspace ma plik POI.
+            this.mapModal.hasPoi = !!(this.overlays && this.overlays.poi);
+            if (this.mapModal.hasPoi) flags.poi = false;
             this.mapModal.layerFlags = flags;
         },
 
@@ -420,6 +452,12 @@ function workspaceView(workspaceId) {
             this._modalFocusMarker = null;
             this._modalFocusHalo = null;
             this._modalOverlays = {};
+            // Pomiary znikają razem z mapą (warstwa była na usuniętym obiekcie).
+            // Stan trzeba wyzerować, inaczej kolejne otwarcie startuje z „aktywną"
+            // miarką bez warstwy i pierwszy klik leci w próżnię.
+            this.mapModal.measure = {
+                active: false, pending: null, layer: null, hasResult: false, lastLayerClick: 0,
+            };
         },
 
         _mountModalMap() {
@@ -470,11 +508,21 @@ function workspaceView(workspaceId) {
                 clusterPane: 'wb-modal-tx-pane',
             }).addTo(map);
             this._renderModalFocus();
+            // Miarka: klik w tło mapy = punkt pomiaru (kliki w markery i POI
+            // idą osobno, z dokładną pozycją obiektu -- patrz `_measureClick`).
+            map.on('click', (e) => this._measureClick(e.latlng, null, false, 'modal'));
+            // Klik w marker transakcji mierzy do jego pozycji, nie do kursora.
+            this._modalMarkerCluster.on('click', (e) => {
+                if (!this.mapModal.measure.active || !e.layer || !e.layer.getLatLng) return;
+                this._measureClick(e.layer.getLatLng(), null, true, 'modal');
+                queueMicrotask(() => { if (e.layer.closePopup) e.layer.closePopup(); });
+            });
             const onMove = () => this._scheduleModalFetch();
             map.on('moveend', onMove);
             map.on('zoomend', onMove);
             this._modalFetchNeighbors();
             this._modalFetchOverlays();
+            this._modalFetchPoi();
             setTimeout(() => map.invalidateSize(), 220);
             this.mapModal.loading = false;
         },
@@ -610,7 +658,63 @@ function workspaceView(workspaceId) {
             this._modalFetchTimer = setTimeout(() => {
                 this._modalFetchNeighbors();
                 this._modalFetchOverlays();
+                this._modalFetchPoi();
             }, 350);
+        },
+
+        // Warstwa POI (OSM) w oknie transakcji -- te same kategorie, kolory
+        // i etykiety co na mapie głównej. Różnica jedna: tu pytamy o wycinek
+        // (`bbox`), bo widok to kilkaset metrów, a plik POI powiatu potrafi
+        // mieć kilkanaście tysięcy punktów.
+        async _modalFetchPoi() {
+            if (!this._modalMap || !this.mapModal.hasPoi) return;
+            const warstwa = this._modalOverlays.poi;
+            if (this.mapModal.layerFlags.poi === false) {
+                if (warstwa) warstwa.clearLayers();
+                return;
+            }
+            const b = this._modalMap.getBounds();
+            const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+            if (!this._modalOverlays.poi) {
+                const layer = L.geoJSON(null, {
+                    pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+                        radius: 4,
+                        weight: 1,
+                        color: '#ffffff',
+                        fillColor: this.poiColor((f.properties || {}).kind),
+                        fillOpacity: 0.95,
+                    }),
+                    onEachFeature: (f, lyr) => {
+                        const p = f.properties || {};
+                        const label = this.poiKindLabel(p.kind);
+                        lyr.bindPopup(
+                            `<strong>${escapeHtml(p.name || label)}</strong><br>`
+                            + `<span class="muted">${escapeHtml(label)} · dane © autorzy OpenStreetMap</span>`
+                        );
+                    },
+                });
+                // Klik w POI w trybie miarki = pomiar do punktu, z jego nazwą
+                // w etykiecie („Szkoła Podstawowa nr 5 · 320 m · transakcja").
+                layer.on('click', (e) => {
+                    if (!this.mapModal.measure.active || !e.layer) return;
+                    const p = (e.layer.feature || {}).properties || {};
+                    this._measureClick(e.layer.getLatLng(),
+                                       p.name || this.poiKindLabel(p.kind), true, 'modal');
+                    queueMicrotask(() => { if (e.layer.closePopup) e.layer.closePopup(); });
+                });
+                this._modalOverlays.poi = layer;
+                layer.addTo(this._modalMap);
+            }
+            try {
+                const r = await fetch(
+                    `/api/layers/workspaces/${this.workspaceId}/poi.geojson?bbox=${encodeURIComponent(bbox)}`);
+                if (!r.ok) return;
+                const data = await r.json();
+                // ODbL wymaga atrybucji przy każdym pokazaniu danych OSM.
+                this.mapModal.poiAttribution = data.attribution || '';
+                this._modalOverlays.poi.clearLayers();
+                this._modalOverlays.poi.addData(data);
+            } catch (e) { /* ignore -- modal mógł być zamknięty */ }
         },
 
         // Faza 4 commit 3 (fix): warstwy GPKG/EGiB w modalu mapy.
@@ -798,6 +902,8 @@ function workspaceView(workspaceId) {
         toggleModalLayer(key) {
             if (key === 'neighbors') {
                 this._modalFetchNeighbors();
+            } else if (key === 'poi') {
+                this._modalFetchPoi();
             } else {
                 this._modalFetchOverlays();
             }
@@ -1723,7 +1829,7 @@ function workspaceView(workspaceId) {
             // Miarka: klik w marker transakcji = pomiar do dokładnej pozycji
             // markera (nie kursora); popup w trybie pomiaru nie zostaje otwarty.
             this.markerCluster.on('click', (e) => {
-                if (!this.measureActive || !e.layer || !e.layer.getLatLng) return;
+                if (!this.measure.active || !e.layer || !e.layer.getLatLng) return;
                 this._measureClick(e.layer.getLatLng(), null, true);
                 queueMicrotask(() => { if (e.layer.closePopup) e.layer.closePopup(); });
             });
@@ -1774,7 +1880,7 @@ function workspaceView(workspaceId) {
                     // Miarka: klik w POI = pomiar do dokładnej pozycji punktu,
                     // z nazwą POI w etykiecie pomiaru.
                     this.overlays[key].layer.on('click', (e) => {
-                        if (!this.measureActive || !e.layer) return;
+                        if (!this.measure.active || !e.layer) return;
                         const p = (e.layer.feature || {}).properties || {};
                         this._measureClick(e.layer.getLatLng(),
                                            p.name || this.poiKindLabel(p.kind), true);
@@ -1862,54 +1968,82 @@ function workspaceView(workspaceId) {
             });
         },
 
-        // --- Miarka (pomiar odległości na mapie) ---
-        wbToggleMeasure() {
-            this.measureActive = !this.measureActive;
-            const el = document.getElementById('map');
-            if (el) el.classList.toggle('wb-measuring', this.measureActive);
-            if (this.measureActive) {
-                if (!this.measureLayer) this.measureLayer = L.featureGroup().addTo(this.map);
+        // --- Miarka (pomiar odległości na mapie) ---------------------------
+        // Dwa zakresy tej samej mechaniki: 'main' -- mapa główna, 'modal' --
+        // mapa w oknie transakcji (widok tabeli, 2026-09-17). Stan jest w
+        // dwóch osobnych obiektach, logika JEDNA -- inaczej dwie kopie
+        // pomiaru rozjechałyby się przy pierwszej poprawce.
+        _measureState(scope) {
+            return scope === 'modal' ? this.mapModal.measure : this.measure;
+        },
+
+        _measureMap(scope) {
+            return scope === 'modal' ? this._modalMap : this.map;
+        },
+
+        _measureCanvasId(scope) {
+            return scope === 'modal' ? 'wb-modal-map' : 'map';
+        },
+
+        wbToggleMeasure(scope = 'main') {
+            const st = this._measureState(scope);
+            const map = this._measureMap(scope);
+            if (!map) return;
+            st.active = !st.active;
+            const el = document.getElementById(this._measureCanvasId(scope));
+            if (el) el.classList.toggle('wb-measuring', st.active);
+            if (st.active) {
+                if (!st.layer) st.layer = L.featureGroup().addTo(map);
             } else {
-                this._measureDropPending();
+                this._measureDropPending(scope);
             }
         },
 
-        wbClearMeasure() {
-            this._measureDropPending();
-            if (this.measureLayer) this.measureLayer.clearLayers();
-            this.measureHasResult = false;
+        wbClearMeasure(scope = 'main') {
+            const st = this._measureState(scope);
+            this._measureDropPending(scope);
+            if (st.layer) st.layer.clearLayers();
+            st.hasResult = false;
         },
 
-        _measureDropPending() {
-            if (this.measurePending && this.measurePending.marker) {
-                this.measureLayer.removeLayer(this.measurePending.marker);
+        _measureDropPending(scope = 'main') {
+            const st = this._measureState(scope);
+            if (st.pending && st.pending.marker && st.layer) {
+                st.layer.removeLayer(st.pending.marker);
             }
-            this.measurePending = null;
+            st.pending = null;
         },
 
-        _measureDot(latlng) {
-            return L.circleMarker(latlng, {
+        _measureDot(latlng, scope = 'main') {
+            const opts = {
                 radius: 5, color: '#9a3412', weight: 2,
-                fillColor: '#ffffff', fillOpacity: 1, pane: 'txMarkers',
-            });
+                fillColor: '#ffffff', fillOpacity: 1,
+            };
+            // Pane 'txMarkers' istnieje tylko na mapie głównej; modal ma własny
+            // ('wb-modal-tx-pane'), a podanie nieistniejącego wywala Leaflet.
+            opts.pane = scope === 'modal' ? 'wb-modal-tx-pane' : 'txMarkers';
+            return L.circleMarker(latlng, opts);
         },
 
         // Wspólna obsługa kliknięcia w trybie miarki. `label` = opis punktu
         // (np. nazwa POI), `fromLayer` = klik delegowany z markera (dedup).
-        _measureClick(latlng, label, fromLayer = false) {
-            if (!this.measureActive || !latlng) return false;
+        _measureClick(latlng, label, fromLayer = false, scope = 'main') {
+            const st = this._measureState(scope);
+            const map = this._measureMap(scope);
+            if (!st.active || !latlng || !map) return false;
+            if (!st.layer) st.layer = L.featureGroup().addTo(map);
             if (fromLayer) {
-                this._measureLastLayerClick = Date.now();
-            } else if (Date.now() - this._measureLastLayerClick < 150) {
+                st.lastLayerClick = Date.now();
+            } else if (Date.now() - st.lastLayerClick < 150) {
                 return true;  // ten sam klik dotarł już z markera
             }
-            if (!this.measurePending) {
-                const marker = this._measureDot(latlng).addTo(this.measureLayer);
-                this.measurePending = { latlng, label, marker };
+            if (!st.pending) {
+                const marker = this._measureDot(latlng, scope).addTo(st.layer);
+                st.pending = { latlng, label, marker };
                 return true;
             }
-            const a = this.measurePending;
-            const d = this.map.distance(a.latlng, latlng);
+            const a = st.pending;
+            const d = map.distance(a.latlng, latlng);
             const dist = d >= 1000
                 ? (d / 1000).toFixed(2).replace('.', ',') + ' km'
                 : Math.round(d) + ' m';
@@ -1923,10 +2057,10 @@ function workspaceView(workspaceId) {
             line.bindTooltip(parts.join(' · '), {
                 permanent: true, direction: 'center', className: 'wb-measure-tip',
             });
-            this.measureLayer.addLayer(line);
-            this.measureLayer.addLayer(this._measureDot(latlng));
-            this.measurePending = null;  // start dot zostaje jako koniec pomiaru
-            this.measureHasResult = true;
+            st.layer.addLayer(line);
+            st.layer.addLayer(this._measureDot(latlng, scope));
+            st.pending = null;  // start dot zostaje jako koniec pomiaru
+            st.hasResult = true;
             return true;
         },
 
